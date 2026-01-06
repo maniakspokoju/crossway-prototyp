@@ -2,14 +2,14 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Crossway 2.0</title>
+    <title>Crossway 2.1</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <style>
         #map { height: 500px; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h1>Crossway 2.0</h1>
+    <h1>Crossway 2.1</h1>
     <p>Wybierz swoją rolę i sprawdź geolokalizację</p>
 
     <button id="driverBtn">Driver</button>
@@ -101,29 +101,43 @@ function assignRole(role) {
     const driverDestMarker = L.marker([0,0], {icon: L.icon({iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize: [25,25]})}).addTo(map).bindPopup("Driver Destination");
     const passengerDestMarker = L.marker([0,0], {icon: L.icon({iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize: [25,25]})}).addTo(map).bindPopup("Passenger Destination");
 
-    // Odczyt z Firebase i aktualizacja markerów
-    const updateMarkers = () => {
+    // Linie tras
+    let driverPolyline = L.polyline([], {color: 'blue'}).addTo(map);
+    let passengerPolyline = L.polyline([], {color: 'green'}).addTo(map);
+
+    const updateMarkersAndLines = () => {
       database.ref("session/driver/currentLocation").once("value").then(snap => {
         const loc = snap.val();
-        if(loc) driverMarker.setLatLng([loc.latitude, loc.longitude]);
+        if(loc) {
+          driverMarker.setLatLng([loc.latitude, loc.longitude]);
+          driverPolyline.setLatLngs([ [loc.latitude, loc.longitude] ]);
+        }
       });
       database.ref("session/driver/destination").once("value").then(snap => {
         const loc = snap.val();
-        if(loc) driverDestMarker.setLatLng([loc.latitude, loc.longitude]);
+        if(loc) {
+          driverDestMarker.setLatLng([loc.latitude, loc.longitude]);
+          driverPolyline.addLatLng([loc.latitude, loc.longitude]);
+        }
       });
       database.ref("session/passenger/currentLocation").once("value").then(snap => {
         const loc = snap.val();
-        if(loc) passengerMarker.setLatLng([loc.latitude, loc.longitude]);
+        if(loc) {
+          passengerMarker.setLatLng([loc.latitude, loc.longitude]);
+          passengerPolyline.setLatLngs([ [loc.latitude, loc.longitude] ]);
+        }
       });
       database.ref("session/passenger/destination").once("value").then(snap => {
         const loc = snap.val();
-        if(loc) passengerDestMarker.setLatLng([loc.latitude, loc.longitude]);
+        if(loc) {
+          passengerDestMarker.setLatLng([loc.latitude, loc.longitude]);
+          passengerPolyline.addLatLng([loc.latitude, loc.longitude]);
+        }
       });
     };
 
-    updateMarkers();
-    // Odświeżanie markerów co 2 sekundy
-    setInterval(updateMarkers, 2000);
+    updateMarkersAndLines();
+    setInterval(updateMarkersAndLines, 2000);
   }
 }
 
