@@ -5,19 +5,17 @@
     <title>Crossway 1.9</title>
 </head>
 <body>
-    <h1>Crossway 1.9</h1>
-    <p>Wybierz swoją rolę i sprawdź geolokalizację</p>
+    <h1>Crossway 1.9.1</h1>
+    <p>Wybierz swoją rolę i wpisz współrzędne (3 cyfry po przecinku)</p>
 
     <button id="driverBtn">Driver</button>
     <button id="passengerBtn">Passenger</button>
     <p id="role"></p>
 
-    <!-- Pasażer wybiera cel -->
-    <div id="passengerDestinationDiv" style="display:none;">
-        <h3>Wskaż lokalizację docelową:</h3>
-        <input type="number" id="destLat" placeholder="Szerokość" step="0.000001">
-        <input type="number" id="destLng" placeholder="Długość" step="0.000001">
-        <button id="saveDestinationBtn">Zapisz cel</button>
+    <div id="locationInputs" style="display:none; margin-top:10px;">
+      <input type="text" id="latInput" placeholder="###">
+      <input type="text" id="lngInput" placeholder="###">
+      <button id="saveLocationBtn">Zapisz lokalizację</button>
     </div>
 
 <!-- Firebase App (Core SDK) -->
@@ -43,67 +41,44 @@ database.ref("session").remove()
   .then(() => console.log("Sesja zresetowana"))
   .catch(err => console.error("Błąd resetu sesji:", err));
 
+let currentRole = null;
+
 // Funkcja przydziału roli
 function assignRole(role) {
+  currentRole = role;
   document.getElementById("role").innerText = "Twoja rola: " + role;
-
-  // Zapis roli w Firebase
-  database.ref(`session/${role}`).set({role: role})
-    .then(() => console.log("Rola zapisana:", role))
-    .catch(err => console.error("Błąd zapisu roli:", err));
-
-  // Jeśli driver, zapis lokalizacji aktualnej + docelowej
-  if (role === "driver" && "geolocation" in navigator) {
-    navigator.geolocation.getCurrentPosition(position => {
-      const lat = position.coords.latitude;
-      const lng = position.coords.longitude;
-
-      // Aktualna lokalizacja kierowcy
-      database.ref("session/driver/currentLocation").set({ latitude: lat, longitude: lng })
-        .then(() => console.log("Aktualna lokalizacja driver zapisana!"))
-        .catch(err => console.error(err));
-
-      // Docelowa lokalizacja kierowcy (ok. 2km od obecnej)
-      const destinationLat = lat + 0.018; // ~2km w przybliżeniu
-      const destinationLng = lng + 0.018;
-      database.ref("session/driver/destination").set({ latitude: destinationLat, longitude: destinationLng })
-        .then(() => console.log("Docelowa lokalizacja driver zapisana!"))
-        .catch(err => console.error(err));
-
-    }, error => console.error("Błąd pobrania lokalizacji:", error.message));
-  }
-
-  // Jeśli passenger, pokaż panel wyboru celu
-  if (role === "passenger") {
-    document.getElementById("passengerDestinationDiv").style.display = "block";
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(position => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        database.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng })
-          .then(() => console.log("Aktualna lokalizacja passenger zapisana!"))
-          .catch(err => console.error(err));
-      }, error => console.error("Błąd pobrania lokalizacji:", error.message));
-    }
-  }
+  document.getElementById("locationInputs").style.display = "block";
 }
 
-// Zapis lokalizacji docelowej pasażera
-document.getElementById("saveDestinationBtn").addEventListener("click", () => {
-  const lat = parseFloat(document.getElementById("destLat").value);
-  const lng = parseFloat(document.getElementById("destLng").value);
-  if (!isNaN(lat) && !isNaN(lng)) {
-    database.ref("session/passenger/destination").set({ latitude: lat, longitude: lng })
-      .then(() => console.log("Docelowa lokalizacja passenger zapisana!"))
-      .catch(err => console.error(err));
-  } else {
-    alert("Wprowadź poprawne współrzędne!");
+// Funkcja zapisująca lokalizację (skrócone 3 cyfry po przecinku)
+function saveLocation() {
+  const latSuffix = document.getElementById("latInput").value;
+  const lngSuffix = document.getElementById("lngInput").value;
+
+  if(latSuffix.length !== 3 || lngSuffix.length !== 3) {
+    alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
+    return;
   }
-});
+
+  let lat = 52.0 + parseInt(latSuffix)/10000;  // 689 -> 0.0689
+  let lng = 19.9 + parseInt(lngSuffix)/10000; // 955 -> 0.0955
+
+  let refPath = "";
+  if(currentRole === "driver") refPath = "session/driver/currentLocation";
+  else if(currentRole === "passenger") refPath = "session/passenger/currentLocation";
+  else return;
+
+  database.ref(refPath).set({ latitude: lat, longitude: lng })
+    .then(() => console.log(`Lokalizacja ${currentRole} zapisana:`, lat, lng))
+    .catch(err => console.error(err));
+}
 
 // Obsługa przycisków
 document.getElementById("driverBtn").addEventListener("click", () => assignRole("driver"));
 document.getElementById("passengerBtn").addEventListener("click", () => assignRole("passenger"));
+document.getElementById("saveLocationBtn").addEventListener("click", saveLocation);
+
 </script>
 </body>
 </html>
+
