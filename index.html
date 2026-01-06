@@ -1,17 +1,15 @@
-git add index.html
-git commit -m "Poprawiony przydział roli i zapis lokalizacji"
-git push origin master
-
-
-
 <!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Crossway 1.9.1</title>
+    <title>Crossway 2.0</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <style>
+        #map { height: 500px; margin-top: 20px; }
+    </style>
 </head>
 <body>
-    <h1>Crossway 1.9.2</h1>
+    <h1>Crossway 2.0</h1>
     <p>Wybierz swoją rolę i sprawdź geolokalizację</p>
 
     <button id="driverBtn">Driver</button>
@@ -19,16 +17,21 @@ git push origin master
     <p id="role"></p>
 
     <!-- Pasażer wybiera cel -->
-    <div id="passengerDestinationDiv" style="display:none;">
+    <div id="passengerDestinationDiv" style="display:none; margin-top:10px;">
         <h3>Wskaż lokalizację docelową:</h3>
-        <input type="number" id="destLat" placeholder="Szerokość" step="0.000001">
-        <input type="number" id="destLng" placeholder="Długość" step="0.000001">
+        <input type="number" id="destLat" placeholder="###" step="0.001">
+        <input type="number" id="destLng" placeholder="###" step="0.001">
         <button id="saveDestinationBtn">Zapisz cel</button>
     </div>
+
+    <div id="map" style="display:none;"></div>
 
 <!-- Firebase App (Core SDK) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
 const firebaseConfig = {
@@ -49,8 +52,11 @@ database.ref("session").remove()
   .then(() => console.log("Sesja zresetowana"))
   .catch(err => console.error("Błąd resetu sesji:", err));
 
+let currentRole = null;
+
 // Funkcja przydziału roli
 function assignRole(role) {
+  currentRole = role;
   document.getElementById("role").innerText = "Twoja rola: " + role;
 
   // Zapis roli w Firebase
@@ -58,39 +64,66 @@ function assignRole(role) {
     .then(() => console.log("Rola zapisana:", role))
     .catch(err => console.error("Błąd zapisu roli:", err));
 
-  // Jeśli driver, zapis lokalizacji aktualnej + docelowej
+  // Driver: zapis aktualnej i docelowej lokalizacji
   if (role === "driver" && "geolocation" in navigator) {
     navigator.geolocation.getCurrentPosition(position => {
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
-
-      // Aktualna lokalizacja kierowcy
-      database.ref("session/driver/currentLocation").set({ latitude: lat, longitude: lng })
-        .then(() => console.log("Aktualna lokalizacja driver zapisana!"))
-        .catch(err => console.error(err));
-
-      // Docelowa lokalizacja kierowcy (ok. 2km od obecnej)
-      const destinationLat = lat + 0.018; // ~2km w przybliżeniu
+      database.ref("session/driver/currentLocation").set({ latitude: lat, longitude: lng });
+      // Docelowa lokalizacja driver (ok. 2km dalej)
+      const destinationLat = lat + 0.018;
       const destinationLng = lng + 0.018;
-      database.ref("session/driver/destination").set({ latitude: destinationLat, longitude: destinationLng })
-        .then(() => console.log("Docelowa lokalizacja driver zapisana!"))
-        .catch(err => console.error(err));
-
-    }, error => console.error("Błąd pobrania lokalizacji:", error.message));
+      database.ref("session/driver/destination").set({ latitude: destinationLat, longitude: destinationLng });
+    }, error => console.error(error.message));
   }
 
-  // Jeśli passenger, pokaż panel wyboru celu
+  // Passenger: pokaż panel wyboru celu i mapę
   if (role === "passenger") {
     document.getElementById("passengerDestinationDiv").style.display = "block";
+    document.getElementById("map").style.display = "block";
+
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(position => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
-        database.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng })
-          .then(() => console.log("Aktualna lokalizacja passenger zapisana!"))
-          .catch(err => console.error(err));
-      }, error => console.error("Błąd pobrania lokalizacji:", error.message));
+        database.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng });
+      }, error => console.error(error.message));
     }
+
+    // Inicjalizacja mapy
+    const map = L.map('map').setView([52.0, 19.9], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    const driverMarker = L.marker([0,0]).addTo(map).bindPopup("Driver");
+    const passengerMarker = L.marker([0,0]).addTo(map).bindPopup("Passenger");
+    const driverDestMarker = L.marker([0,0], {icon: L.icon({iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize: [25,25]})}).addTo(map).bindPopup("Driver Destination");
+    const passengerDestMarker = L.marker([0,0], {icon: L.icon({iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize: [25,25]})}).addTo(map).bindPopup("Passenger Destination");
+
+    // Odczyt z Firebase i aktualizacja markerów
+    const updateMarkers = () => {
+      database.ref("session/driver/currentLocation").once("value").then(snap => {
+        const loc = snap.val();
+        if(loc) driverMarker.setLatLng([loc.latitude, loc.longitude]);
+      });
+      database.ref("session/driver/destination").once("value").then(snap => {
+        const loc = snap.val();
+        if(loc) driverDestMarker.setLatLng([loc.latitude, loc.longitude]);
+      });
+      database.ref("session/passenger/currentLocation").once("value").then(snap => {
+        const loc = snap.val();
+        if(loc) passengerMarker.setLatLng([loc.latitude, loc.longitude]);
+      });
+      database.ref("session/passenger/destination").once("value").then(snap => {
+        const loc = snap.val();
+        if(loc) passengerDestMarker.setLatLng([loc.latitude, loc.longitude]);
+      });
+    };
+
+    updateMarkers();
+    // Odświeżanie markerów co 2 sekundy
+    setInterval(updateMarkers, 2000);
   }
 }
 
@@ -98,12 +131,9 @@ function assignRole(role) {
 document.getElementById("saveDestinationBtn").addEventListener("click", () => {
   let latSuffix = document.getElementById("destLat").value.trim();
   let lngSuffix = document.getElementById("destLng").value.trim();
-
-  // Sprawdzenie, czy wpisano 3 cyfry
-  if (latSuffix.length === 3 && lngSuffix.length === 3) {
-    const lat = 52.0 + parseInt(latSuffix) / 10000;  // 689 -> 0.0689
-    const lng = 19.9 + parseInt(lngSuffix) / 10000;  // 955 -> 0.0955
-
+  if(latSuffix.length === 3 && lngSuffix.length === 3) {
+    const lat = 52.0 + parseInt(latSuffix)/10000;
+    const lng = 19.9 + parseInt(lngSuffix)/10000;
     database.ref("session/passenger/destination").set({ latitude: lat, longitude: lng })
       .then(() => console.log("Docelowa lokalizacja passenger zapisana:", lat, lng))
       .catch(err => console.error(err));
@@ -111,7 +141,6 @@ document.getElementById("saveDestinationBtn").addEventListener("click", () => {
     alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
   }
 });
-
 
 // Obsługa przycisków
 document.getElementById("driverBtn").addEventListener("click", () => assignRole("driver"));
