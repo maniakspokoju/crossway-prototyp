@@ -5,7 +5,7 @@
     <title>Crossway 1</title>
 </head>
 <body>
-    <h1>Crossway 1.5</h1>
+    <h1>Crossway 1.6</h1>
     <p>Sprawdzenie geolokalizacji na GitHub Pages</p>
 
 
@@ -15,6 +15,14 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
+
+// Reset sesji dla testów
+database.ref("session").remove()
+  .then(() => console.log("Sesja zresetowana"))
+  .catch(err => console.error("Błąd resetu sesji:", err));
+
+
+
   // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
