@@ -9,6 +9,28 @@
     <p>Sprawdzenie geolokalizacji na GitHub Pages</p>
 
     <script>
+// Przydział roli: pierwszy wczytany -> driver, drugi -> passenger (losowo dla prototypu)
+  let role = Math.random() < 0.5 ? "driver" : "passenger";
+  document.body.insertAdjacentHTML("beforeend", `<p>Twoja rola: ${role}</p>`);
+
+  // Sprawdzenie geolokalizacji
+  if ("geolocation" in navigator) {
+    navigator.geolocation.getCurrentPosition(
+      function(position) {
+        console.log("GPS działa!");
+        console.log("Szerokość: " + position.coords.latitude);
+        console.log("Długość: " + position.coords.longitude);
+        alert(`Rola: ${role}\nGPS działa! Sprawdź konsolę, aby zobaczyć współrzędne.`);
+      },
+      function(error) {
+        console.error("Błąd geolokalizacji:", error.message);
+        alert(`Rola: ${role}\nNie udało się pobrać lokalizacji: ${error.message}`);
+      }
+    );
+  } else {
+    alert(`Rola: ${role}\nGeolokalizacja nie jest wspierana przez tę przeglądarkę.`);
+  }
+        
       // Sprawdzenie, czy geolokalizacja jest dostępna
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
