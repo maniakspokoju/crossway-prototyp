@@ -1,169 +1,166 @@
+Działa - punkty na mapie połączone prostymi liniami
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <title>Crossway 1.10</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <style>
-    body { margin: 0; font-family: sans-serif; }
-    #map { height: 60vh; width: 100%; margin-top: 20px; display: none; }
-
-    .start-icon {
-      background: white;
-      border: 2px solid black;
-      border-radius: 50%;
-      width: 26px;
-      height: 26px;
-      text-align: center;
-      line-height: 12px;
-      font-weight: bold;
-    }
-    .driver { border-color: blue; color: blue; }
-    .passenger { border-color: red; color: red; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Crossway 2.1</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <style>
+        #map { height: 500px; margin-top: 20px; }
+    </style>
 </head>
 <body>
-  <h1>Crossway 1.10</h1>
-  <p>Wybierz swoją rolę i ustaw lokalizację</p>
+    <h1>Crossway 2.1</h1>
+    <p>Wybierz swoją rolę i sprawdź geolokalizację</p>
 
-  <button id="driverBtn">Driver</button>
-  <button id="passengerBtn">Passenger</button>
-  <p id="role"></p>
+    <button id="driverBtn">Driver</button>
+    <button id="passengerBtn">Passenger</button>
+    <p id="role"></p>
 
-  <!-- Pasażer wybiera cel -->
-  <div id="passengerDestinationDiv" style="display:none; margin-top:10px;">
-    <h3>Wskaż lokalizację docelową:</h3>
-    <input type="number" id="destLat" placeholder="Szerokość (###)" step="1">
-    <input type="number" id="destLng" placeholder="Długość (###)" step="1">
-    <button id="saveDestinationBtn">Zapisz cel</button>
-  </div>
+    <!-- Pasażer wybiera cel -->
+    <div id="passengerDestinationDiv" style="display:none; margin-top:10px;">
+        <h3>Wskaż lokalizację docelową:</h3>
+        <input type="number" id="destLat" placeholder="###" step="0.001">
+        <input type="number" id="destLng" placeholder="###" step="0.001">
+        <button id="saveDestinationBtn">Zapisz cel</button>
+    </div>
 
-  <div id="map"></div>
+    <div id="map" style="display:none;"></div>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Firebase App (Core SDK) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
-    authDomain: "crossway-prototyp.firebaseapp.com",
-    projectId: "crossway-prototyp",
-    storageBucket: "crossway-prototyp.firebasestorage.app",
-    messagingSenderId: "852476458596",
-    appId: "1:852476458596:web:f901da16de7dc8a3551171",
-    databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
-  };
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-  firebase.initializeApp(firebaseConfig);
-  const database = firebase.database();
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
+  authDomain: "crossway-prototyp.firebaseapp.com",
+  projectId: "crossway-prototyp",
+  storageBucket: "crossway-prototyp.firebasestorage.app",
+  messagingSenderId: "852476458596",
+  appId: "1:852476458596:web:f901da16de7dc8a3551171",
+  databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
+};
 
-  // Reset sesji dla testów
-  database.ref("session").remove()
-    .then(() => console.log("Sesja zresetowana"))
-    .catch(err => console.error("Błąd resetu sesji:", err));
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
-  function assignRole(role) {
-    document.getElementById("role").innerText = "Twoja rola: " + role;
+// Reset sesji dla testów
+database.ref("session").remove()
+  .then(() => console.log("Sesja zresetowana"))
+  .catch(err => console.error("Błąd resetu sesji:", err));
 
-    // Zapis roli w Firebase
-    database.ref(`session/${role}`).set({role: role})
-      .then(() => console.log("Rola zapisana:", role))
-      .catch(err => console.error("Błąd zapisu roli:", err));
+let currentRole = null;
 
-    if (role === "driver" && "geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        database.ref("session/driver/currentLocation").set({ latitude: lat, longitude: lng });
-        // Docelowa lokalizacja ~2km od startu
-        const destLat = lat + 0.018;
-        const destLng = lng + 0.018;
-        database.ref("session/driver/destination").set({ latitude: destLat, longitude: destLng });
-      });
-    }
+// Funkcja przydziału roli
+function assignRole(role) {
+  currentRole = role;
+  document.getElementById("role").innerText = "Twoja rola: " + role;
 
-    if (role === "passenger") {
-      document.getElementById("passengerDestinationDiv").style.display = "block";
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(pos => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          database.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng });
-        });
-      }
-    }
+  // Zapis roli w Firebase
+  database.ref(`session/${role}`).set({role: role})
+    .then(() => console.log("Rola zapisana:", role))
+    .catch(err => console.error("Błąd zapisu roli:", err));
+
+  // Driver: zapis aktualnej i docelowej lokalizacji
+  if (role === "driver" && "geolocation" in navigator) {
+    navigator.geolocation.getCurrentPosition(position => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      database.ref("session/driver/currentLocation").set({ latitude: lat, longitude: lng });
+      // Docelowa lokalizacja driver (ok. 2km dalej)
+      const destinationLat = lat + 0.018;
+      const destinationLng = lng + 0.018;
+      database.ref("session/driver/destination").set({ latitude: destinationLat, longitude: destinationLng });
+    }, error => console.error(error.message));
   }
 
-  // Skrótowe wpisy dla pasażera
-  document.getElementById("saveDestinationBtn").addEventListener("click", () => {
-    let latSuffix = document.getElementById("destLat").value.trim();
-    let lngSuffix = document.getElementById("destLng").value.trim();
-    if (latSuffix.length === 3 && lngSuffix.length === 3) {
-      const lat = 52.0 + parseInt(latSuffix)/10000;
-      const lng = 19.9 + parseInt(lngSuffix)/10000;
-      database.ref("session/passenger/destination").set({ latitude: lat, longitude: lng })
-        .then(() => {
-          console.log("Docelowa lokalizacja passenger zapisana:", lat, lng);
-          showMapForPassenger(); // Wyświetlenie mapy po zapisaniu celu
-        });
-    } else {
-      alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
-    }
-  });
-
-  document.getElementById("driverBtn").addEventListener("click", () => assignRole("driver"));
-  document.getElementById("passengerBtn").addEventListener("click", () => assignRole("passenger"));
-
-  // =====================
-  // FUNKCJA WYŚWIETLANIA MAPY
-  // =====================
-  function showMapForPassenger() {
+  // Passenger: pokaż panel wyboru celu i mapę
+  if (role === "passenger") {
+    document.getElementById("passengerDestinationDiv").style.display = "block";
     document.getElementById("map").style.display = "block";
 
-    Promise.all([
-      database.ref("session/driver/currentLocation").get(),
-      database.ref("session/driver/destination").get(),
-      database.ref("session/passenger/currentLocation").get(),
-      database.ref("session/passenger/destination").get()
-    ]).then(([driverStartSnap, driverEndSnap, passengerStartSnap, passengerEndSnap]) => {
-      const driverStart = driverStartSnap.val();
-      const driverEnd = driverEndSnap.val();
-      const passengerStart = passengerStartSnap.val();
-      const passengerEnd = passengerEndSnap.val();
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(position => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        database.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng });
+      }, error => console.error(error.message));
+    }
 
-      if (!driverStart || !driverEnd || !passengerStart || !passengerEnd) return;
+    // Inicjalizacja mapy
+    const map = L.map('map').setView([52.0, 19.9], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
 
-      const API_URL = `https://<TWÓJ_CLOUD_FUNCTION>/getRoute?` +
-        `driverStart=${driverStart.latitude},${driverStart.longitude}` +
-        `&driverEnd=${driverEnd.latitude},${driverEnd.longitude}` +
-        `&passengerStart=${passengerStart.latitude},${passengerStart.longitude}` +
-        `&passengerEnd=${passengerEnd.latitude},${passengerEnd.longitude}`;
+    const driverMarker = L.marker([0,0]).addTo(map).bindPopup("Driver");
+    const passengerMarker = L.marker([0,0]).addTo(map).bindPopup("Passenger");
+    const driverDestMarker = L.marker([0,0], {icon: L.icon({iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize: [25,25]})}).addTo(map).bindPopup("Driver Destination");
+    const passengerDestMarker = L.marker([0,0], {icon: L.icon({iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize: [25,25]})}).addTo(map).bindPopup("Passenger Destination");
 
-      const map = L.map("map").setView([passengerStart.latitude, passengerStart.longitude], 14);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap"
-      }).addTo(map);
+    // Linie tras
+    let driverPolyline = L.polyline([], {color: 'blue'}).addTo(map);
+    let passengerPolyline = L.polyline([], {color: 'green'}).addTo(map);
 
-      fetch(API_URL).then(res => res.json()).then(data => {
-        const driverPath = data.driverRoute.map(p => [p.lat, p.lng]);
-        const passengerPath = data.passengerRoute.map(p => [p.lat, p.lng]);
-        const commonPath = data.commonRoute.map(p => [p.lat, p.lng]);
-
-        // Linie
-        L.polyline(driverPath, { color: "blue", weight: 5 }).addTo(map);
-        L.polyline(passengerPath, { color: "red", weight: 5 }).addTo(map);
-        L.polyline(commonPath, { color: "green", weight: 7 }).addTo(map);
-
-        // Markery start/cel
-        L.marker(driverPath[0], { icon: L.divIcon({ html: "K", className: "start-icon driver" }) }).addTo(map);
-        L.marker(driverPath.at(-1), { icon: L.icon({ iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", iconSize:[15,20], iconAnchor:[6,20] }) }).addTo(map);
-        L.marker(passengerPath[0], { icon: L.divIcon({ html: "P", className: "start-icon passenger" }) }).addTo(map);
-        L.marker(passengerPath.at(-1), { icon: L.icon({ iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", iconSize:[15,20], iconAnchor:[6,20] }) }).addTo(map);
+    const updateMarkersAndLines = () => {
+      database.ref("session/driver/currentLocation").once("value").then(snap => {
+        const loc = snap.val();
+        if(loc) {
+          driverMarker.setLatLng([loc.latitude, loc.longitude]);
+          driverPolyline.setLatLngs([ [loc.latitude, loc.longitude] ]);
+        }
       });
-    });
+      database.ref("session/driver/destination").once("value").then(snap => {
+        const loc = snap.val();
+        if(loc) {
+          driverDestMarker.setLatLng([loc.latitude, loc.longitude]);
+          driverPolyline.addLatLng([loc.latitude, loc.longitude]);
+        }
+      });
+      database.ref("session/passenger/currentLocation").once("value").then(snap => {
+        const loc = snap.val();
+        if(loc) {
+          passengerMarker.setLatLng([loc.latitude, loc.longitude]);
+          passengerPolyline.setLatLngs([ [loc.latitude, loc.longitude] ]);
+        }
+      });
+      database.ref("session/passenger/destination").once("value").then(snap => {
+        const loc = snap.val();
+        if(loc) {
+          passengerDestMarker.setLatLng([loc.latitude, loc.longitude]);
+          passengerPolyline.addLatLng([loc.latitude, loc.longitude]);
+        }
+      });
+    };
+
+    updateMarkersAndLines();
+    setInterval(updateMarkersAndLines, 2000);
   }
-  </script>
+}
+
+// Zapis lokalizacji docelowej pasażera (skrótowe wpisy)
+document.getElementById("saveDestinationBtn").addEventListener("click", () => {
+  let latSuffix = document.getElementById("destLat").value.trim();
+  let lngSuffix = document.getElementById("destLng").value.trim();
+  if(latSuffix.length === 3 && lngSuffix.length === 3) {
+    const lat = 52.0 + parseInt(latSuffix)/10000;
+    const lng = 19.9 + parseInt(lngSuffix)/10000;
+    database.ref("session/passenger/destination").set({ latitude: lat, longitude: lng })
+      .then(() => console.log("Docelowa lokalizacja passenger zapisana:", lat, lng))
+      .catch(err => console.error(err));
+  } else {
+    alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
+  }
+});
+
+// Obsługa przycisków
+document.getElementById("driverBtn").addEventListener("click", () => assignRole("driver"));
+document.getElementById("passengerBtn").addEventListener("click", () => assignRole("passenger"));
+</script>
 </body>
 </html>
