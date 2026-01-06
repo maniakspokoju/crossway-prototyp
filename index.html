@@ -5,7 +5,7 @@
     <title>Crossway 1</title>
 </head>
 <body>
-    <h1>Crossway1</h1>
+    <h1>Crossway 1.1</h1>
     <p>Sprawdzenie geolokalizacji na GitHub Pages</p>
 
 
@@ -84,5 +84,31 @@ const firebaseConfig = {
         alert("Geolokalizacja nie jest wspierana przez tę przeglądarkę.");
       }
     </script>
+
+<script>
+  const roleRef = database.ref("session/roleAssigned");
+
+  roleRef.transaction(current => {
+    if (current === null) {
+      return "driver";
+    }
+    if (current === "driver") {
+      return "passenger";
+    }
+    return current;
+  }, (error, committed, snapshot) => {
+    if (error) {
+      console.error("Błąd przydziału roli:", error);
+    } else if (committed) {
+      const role = snapshot.val();
+      console.log("Twoja rola:", role);
+
+      const roleInfo = document.createElement("p");
+      roleInfo.innerText = "Twoja rola: " + role;
+      document.body.appendChild(roleInfo);
+    }
+  });
+</script>
+
 </body>
 </html>
