@@ -8,6 +8,39 @@
     <h1>Prototyp Rideshare</h1>
     <p>Sprawdzenie geolokalizacji na GitHub Pages</p>
 
+
+<!-- Firebase App (Core SDK) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<!-- Firebase Realtime Database -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
+    authDomain: "crossway-prototyp.firebaseapp.com",
+    projectId: "crossway-prototyp",
+    storageBucket: "crossway-prototyp.firebasestorage.app",
+    messagingSenderId: "852476458596",
+    appId: "1:852476458596:web:f901da16de7dc8a3551171"
+  };
+
+
+  // Inicjalizacja Firebase
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+
+  // Test połączenia: zapis i odczyt
+  database.ref('test').set({msg: "Hello from prototyp!"})
+    .then(() => console.log("Test zapisany do Firebase!"))
+    .catch(err => console.error("Błąd zapisu:", err));
+
+  database.ref('test').on('value', snapshot => {
+    console.log("Odczyt z Firebase:", snapshot.val());
+  });
+</script>
+
+
     <script>
 // Przydział roli: pierwszy wczytany -> driver, drugi -> passenger (losowo dla prototypu)
   let role = Math.random() < 0.5 ? "driver" : "passenger";
