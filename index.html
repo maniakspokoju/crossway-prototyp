@@ -2,15 +2,23 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Crossway 1.7</title>
+    <title>Crossway 1.9</title>
 </head>
 <body>
-    <h1>Crossway 1.8</h1>
+    <h1>Crossway 1.9</h1>
     <p>Wybierz swoją rolę i sprawdź geolokalizację</p>
 
     <button id="driverBtn">Driver</button>
     <button id="passengerBtn">Passenger</button>
     <p id="role"></p>
+
+    <!-- Pasażer wybiera cel -->
+    <div id="passengerDestinationDiv" style="display:none;">
+        <h3>Wskaż lokalizację docelową:</h3>
+        <input type="number" id="destLat" placeholder="Szerokość" step="0.000001">
+        <input type="number" id="destLng" placeholder="Długość" step="0.000001">
+        <button id="saveDestinationBtn">Zapisz cel</button>
+    </div>
 
 <!-- Firebase App (Core SDK) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -37,25 +45,61 @@ database.ref("session").remove()
 
 // Funkcja przydziału roli
 function assignRole(role) {
-  const roleRef = database.ref("session/roleAssigned");
-  roleRef.set(role)
+  document.getElementById("role").innerText = "Twoja rola: " + role;
+
+  // Zapis roli w Firebase
+  database.ref(`session/${role}`).set({role: role})
     .then(() => console.log("Rola zapisana:", role))
     .catch(err => console.error("Błąd zapisu roli:", err));
 
-  document.getElementById("role").innerText = "Twoja rola: " + role;
-
-  // Jeśli driver, pobierz lokalizację i zapisz w Firebase
+  // Jeśli driver, zapis lokalizacji aktualnej + docelowej
   if (role === "driver" && "geolocation" in navigator) {
     navigator.geolocation.getCurrentPosition(position => {
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
-      const driverRef = database.ref("session/driverLocation");
-      driverRef.set({ latitude: lat, longitude: lng })
-        .then(() => console.log("Lokalizacja kierowcy zapisana!"))
-        .catch(err => console.error("Błąd zapisu lokalizacji:", err));
+
+      // Aktualna lokalizacja kierowcy
+      database.ref("session/driver/currentLocation").set({ latitude: lat, longitude: lng })
+        .then(() => console.log("Aktualna lokalizacja driver zapisana!"))
+        .catch(err => console.error(err));
+
+      // Docelowa lokalizacja kierowcy (ok. 2km od obecnej)
+      const destinationLat = lat + 0.018; // ~2km w przybliżeniu
+      const destinationLng = lng + 0.018;
+      database.ref("session/driver/destination").set({ latitude: destinationLat, longitude: destinationLng })
+        .then(() => console.log("Docelowa lokalizacja driver zapisana!"))
+        .catch(err => console.error(err));
+
     }, error => console.error("Błąd pobrania lokalizacji:", error.message));
   }
+
+  // Jeśli passenger, pokaż panel wyboru celu
+  if (role === "passenger") {
+    document.getElementById("passengerDestinationDiv").style.display = "block";
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(position => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        database.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng })
+          .then(() => console.log("Aktualna lokalizacja passenger zapisana!"))
+          .catch(err => console.error(err));
+      }, error => console.error("Błąd pobrania lokalizacji:", error.message));
+    }
+  }
 }
+
+// Zapis lokalizacji docelowej pasażera
+document.getElementById("saveDestinationBtn").addEventListener("click", () => {
+  const lat = parseFloat(document.getElementById("destLat").value);
+  const lng = parseFloat(document.getElementById("destLng").value);
+  if (!isNaN(lat) && !isNaN(lng)) {
+    database.ref("session/passenger/destination").set({ latitude: lat, longitude: lng })
+      .then(() => console.log("Docelowa lokalizacja passenger zapisana!"))
+      .catch(err => console.error(err));
+  } else {
+    alert("Wprowadź poprawne współrzędne!");
+  }
+});
 
 // Obsługa przycisków
 document.getElementById("driverBtn").addEventListener("click", () => assignRole("driver"));
