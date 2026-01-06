@@ -1,61 +1,31 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <title>Prototyp Rideshare</title>
+    <meta charset="UTF-8">
+    <title>Prototyp Rideshare</title>
 </head>
 <body>
-  <h1>Prototyp Rideshare</h1>
-  <p id="role"></p>
-  <p id="status"></p>
-  <script>
-    const ws = new WebSocket('ws://192.168.1.181:8080');
- // tutaj potem wstawisz IP komputera, jeśli testujesz na telefonie
-    const status = document.getElementById('status');
-    const roleEl = document.getElementById('role');
+    <h1>Prototyp Rideshare</h1>
+    <p>Sprawdzenie geolokalizacji na GitHub Pages</p>
 
-    let role = null;
-
-    ws.onopen = () => {
-      status.textContent = 'Połączono z serwerem';
-    };
-
-    ws.onmessage = async (event) => {
-      const msg = JSON.parse(event.data);
-
-      if (msg.role) {
-        role = msg.role;
-        roleEl.textContent = 'Twoja rola: ' + role;
-
-        // Kierowca automatycznie wysyła lokalizację + sztywny cel
-        if (role === 'driver') {
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((pos) => {
-              const driverData = {
-                start: { lat: pos.coords.latitude, lng: pos.coords.longitude },
-                goal: { lat: 52.2297, lng: 21.0122 } // sztywny punkt docelowy, np. Warszawa
-              };
-              ws.send(JSON.stringify({ type: 'driverData', data: driverData }));
-              status.textContent = 'Wysłano dane kierowcy';
-            }, (err) => {
-              status.textContent = 'Błąd geolokalizacji: ' + err.message;
-            });
-          } else {
-            status.textContent = 'Geolokalizacja niedostępna';
+    <script>
+      // Sprawdzenie, czy geolokalizacja jest dostępna
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          function(position) {
+            console.log("GPS działa!");
+            console.log("Szerokość: " + position.coords.latitude);
+            console.log("Długość: " + position.coords.longitude);
+            alert("GPS działa! Sprawdź konsolę, aby zobaczyć współrzędne.");
+          },
+          function(error) {
+            console.error("Błąd geolokalizacji:", error.message);
+            alert("Nie udało się pobrać lokalizacji: " + error.message);
           }
-        }
+        );
+      } else {
+        alert("Geolokalizacja nie jest wspierana przez tę przeglądarkę.");
       }
-
-      if (msg.type === 'driverData' && role === 'passenger') {
-        console.log('Otrzymano dane kierowcy:', msg.data);
-        status.textContent = 'Otrzymano dane kierowcy: start ' +
-          msg.data.start.lat + ',' + msg.data.start.lng;
-      }
-    };
-
-    ws.onclose = () => {
-      status.textContent = 'Rozłączono z serwerem';
-    };
-  </script>
+    </script>
 </body>
 </html>
