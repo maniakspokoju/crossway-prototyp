@@ -2,12 +2,11 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Crossway 1</title>
+    <title>Crossway 1.6</title>
 </head>
 <body>
-    <h1>Crossway 1.6</h1>
+    <h1>Crossway 1.7</h1>
     <p>Sprawdzenie geolokalizacji na GitHub Pages</p>
-
 
 <!-- Firebase App (Core SDK) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -15,32 +14,27 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-
-// Reset sesji dla testów
-database.ref("session").remove()
-  .then(() => console.log("Sesja zresetowana"))
-  .catch(err => console.error("Błąd resetu sesji:", err));
-
-
-
-  // Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
-  authDomain: "crossway-prototyp.firebaseapp.com",
-  projectId: "crossway-prototyp",
-  storageBucket: "crossway-prototyp.firebasestorage.app",
-  messagingSenderId: "852476458596",
-  appId: "1:852476458596:web:f901da16de7dc8a3551171",
-  databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
-};
-
-
+  // Konfiguracja Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
+    authDomain: "crossway-prototyp.firebaseapp.com",
+    projectId: "crossway-prototyp",
+    storageBucket: "crossway-prototyp.firebasestorage.app",
+    messagingSenderId: "852476458596",
+    appId: "1:852476458596:web:f901da16de7dc8a3551171",
+    databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
+  };
 
   // Inicjalizacja Firebase
   firebase.initializeApp(firebaseConfig);
   const database = firebase.database();
 
-  // Test połączenia: zapis i odczyt
+  // Reset sesji dla testów
+  database.ref("session").remove()
+    .then(() => console.log("Sesja zresetowana"))
+    .catch(err => console.error("Błąd resetu sesji:", err));
+
+  // Test połączenia z Firebase
   database.ref('test').set({msg: "Hello from prototyp!"})
     .then(() => console.log("Test zapisany do Firebase!"))
     .catch(err => console.error("Błąd zapisu:", err));
@@ -48,49 +42,46 @@ const firebaseConfig = {
   database.ref('test').on('value', snapshot => {
     console.log("Odczyt z Firebase:", snapshot.val());
   });
-</script>
 
+  // Referencja do roli w Firebase
+  const roleRef = database.ref("session/roleAssigned");
 
-    <script>
+  // Przydział roli i zapis lokalizacji kierowcy
+  roleRef.transaction(current => {
+    if (current === null) return "driver";
+    if (current === "driver") return "passenger";
+    return current;
+  }, (error, committed, snapshot) => {
+    if (error) {
+      console.error("Błąd przydziału roli:", error);
+    } else if (committed) {
+      const role = snapshot.val();
+      console.log("Twoja rola:", role);
 
-// Referencja do roli w Firebase
-const roleRef = database.ref("session/roleAssigned");
+      // Wyświetlenie roli w HTML
+      let roleInfo = document.getElementById("role");
+      if (!roleInfo) {
+        roleInfo = document.createElement("p");
+        roleInfo.id = "role";
+        document.body.appendChild(roleInfo);
+      }
+      roleInfo.innerText = "Twoja rola: " + role;
 
-// Zapis lokalizacji kierowcy do Firebase
-roleRef.transaction(current => {
-  if (current === null) return "driver";
-  if (current === "driver") return "passenger";
-  return current;
-}, (error, committed, snapshot) => {
-  if (error) {
-    console.error("Błąd przydziału roli:", error);
-  } else if (committed) {
-    const role = snapshot.val();
-    console.log("Twoja rola:", role);
-
-    // Wyświetlenie roli w HTML
-    let roleInfo = document.getElementById("role");
-    if (!roleInfo) {
-      roleInfo = document.createElement("p");
-      roleInfo.id = "role";
-      document.body.appendChild(roleInfo);
+      // Jeśli driver, zapis lokalizacji do Firebase
+      if (role === "driver" && "geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(position => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const driverRef = database.ref("session/driverLocation");
+          driverRef.set({ latitude: lat, longitude: lng })
+            .then(() => console.log("Lokalizacja kierowcy zapisana w Firebase!"))
+            .catch(err => console.error("Błąd zapisu lokalizacji:", err));
+        }, error => {
+          console.error("Błąd pobrania lokalizacji:", error.message);
+        });
+      }
     }
-    roleInfo.innerText = "Twoja rola: " + role;
-
-    // Jeśli driver, zapis lokalizacji do Firebase
-    if (role === "driver" && "geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(position => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        const driverRef = database.ref("session/driverLocation");
-        driverRef.set({ latitude: lat, longitude: lng })
-          .then(() => console.log("Lokalizacja kierowcy zapisana w Firebase!"))
-          .catch(err => console.error("Błąd zapisu lokalizacji:", err));
-      });
-    }
-  }
-});
-
+  });
 </script>
 
 </body>
