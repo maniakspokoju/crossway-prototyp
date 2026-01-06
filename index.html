@@ -5,7 +5,7 @@
     <title>Crossway 1</title>
 </head>
 <body>
-    <h1>Crossway 1.1</h1>
+    <h1>Crossway 1.2</h1>
     <p>Sprawdzenie geolokalizacji na GitHub Pages</p>
 
 
@@ -103,9 +103,16 @@ const firebaseConfig = {
       const role = snapshot.val();
       console.log("Twoja rola:", role);
 
-      const roleInfo = document.createElement("p");
-      roleInfo.innerText = "Twoja rola: " + role;
-      document.body.appendChild(roleInfo);
+let roleInfo = document.getElementById("role");
+
+if (!roleInfo) {
+  roleInfo = document.createElement("p");
+  roleInfo.id = "role";
+  document.body.appendChild(roleInfo);
+}
+
+roleInfo.innerText = "Twoja rola: " + role;
+
     }
   });
 </script>
