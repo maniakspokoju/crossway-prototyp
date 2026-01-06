@@ -5,7 +5,7 @@
     <title>Crossway 1</title>
 </head>
 <body>
-    <h1>Crossway 1.4</h1>
+    <h1>Crossway 1.5</h1>
     <p>Sprawdzenie geolokalizacji na GitHub Pages</p>
 
 
@@ -45,39 +45,44 @@ const firebaseConfig = {
 
     <script>
 
+// Referencja do roli w Firebase
+const roleRef = database.ref("session/roleAssigned");
 
-    </script>
+// Zapis lokalizacji kierowcy do Firebase
+roleRef.transaction(current => {
+  if (current === null) return "driver";
+  if (current === "driver") return "passenger";
+  return current;
+}, (error, committed, snapshot) => {
+  if (error) {
+    console.error("Błąd przydziału roli:", error);
+  } else if (committed) {
+    const role = snapshot.val();
+    console.log("Twoja rola:", role);
 
-<script>
-  const roleRef = database.ref("session/roleAssigned");
-
-  roleRef.transaction(current => {
-    if (current === null) {
-      return "driver";
+    // Wyświetlenie roli w HTML
+    let roleInfo = document.getElementById("role");
+    if (!roleInfo) {
+      roleInfo = document.createElement("p");
+      roleInfo.id = "role";
+      document.body.appendChild(roleInfo);
     }
-    if (current === "driver") {
-      return "passenger";
+    roleInfo.innerText = "Twoja rola: " + role;
+
+    // Jeśli driver, zapis lokalizacji do Firebase
+    if (role === "driver" && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(position => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const driverRef = database.ref("session/driverLocation");
+        driverRef.set({ latitude: lat, longitude: lng })
+          .then(() => console.log("Lokalizacja kierowcy zapisana w Firebase!"))
+          .catch(err => console.error("Błąd zapisu lokalizacji:", err));
+      });
     }
-    return current;
-  }, (error, committed, snapshot) => {
-    if (error) {
-      console.error("Błąd przydziału roli:", error);
-    } else if (committed) {
-      const role = snapshot.val();
-      console.log("Twoja rola:", role);
+  }
+});
 
-let roleInfo = document.getElementById("role");
-
-if (!roleInfo) {
-  roleInfo = document.createElement("p");
-  roleInfo.id = "role";
-  document.body.appendChild(roleInfo);
-}
-
-roleInfo.innerText = "Twoja rola: " + role;
-
-    }
-  });
 </script>
 
 </body>
