@@ -5,15 +5,64 @@
 <title>Crossway</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <style>
-body { font-family: sans-serif; margin: 10px; }
-#map { height: 500px; margin-top: 20px; display:none; }
-#driverDestinationDiv, #passengerDestinationDiv { display:none; margin-top:10px; }
-input { width: 100px; margin-right: 5px; }
+body {
+    font-family: sans-serif;
+    margin: 10px;
+}
+
+/* MAPA */
+#map {
+    height: 1000px;
+    margin-top: 20px;
+    display: none;
+}
+
+/* SEKCJE FORMULARZY */
+#driverDestinationDiv,
+#passengerDestinationDiv {
+    display: none;
+    margin-top: 20px;
+}
+
+/* INPUTY */
+input {
+    width: 120px;
+    height: 50px;
+    font-size: 22px;
+    margin-right: 10px;
+    text-align: center;
+}
+
+/* ===== DUŻE PRZYCISKI (4–6x) ===== */
+button {
+    font-size: 26px;
+    padding: 20px 30px;
+    margin: 10px 5px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+}
+
+/* LEPSZA CZYTELNOŚĆ RÓL */
+#driverBtn {
+    background-color: #2f6fff;
+    color: white;
+}
+
+#passengerBtn {
+    background-color: #2fbf6f;
+    color: white;
+}
+
+/* EFEKT DOTYKOWY */
+button:active {
+    transform: scale(0.97);
+}
 </style>
 </head>
 
 <body>
-<h1>Crossway – fundament</h1>
+<h1>Crossway – fundament 1.2</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
