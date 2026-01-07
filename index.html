@@ -1,182 +1,173 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<title>Crossway 2.3</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
-<style>
-    #map { height: 500px; margin-top: 20px; }
-</style>
+    <meta charset="UTF-8">
+    <title>Crossway</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <style>
+        body { font-family: sans-serif; margin: 10px; }
+        #map { height: 500px; margin-top: 20px; display:none; }
+        #passengerDestinationDiv, #driverDestinationDiv { display:none; margin-top:10px; }
+        input { width: 100px; margin-right: 5px; }
+    </style>
 </head>
 <body>
-<h1>Crossway 2.3</h1>
-<p>Wybierz swoją rolę i sprawdź geolokalizację</p>
+    <h1>Crossway 2.6 – trasy po drogach</h1>
+    <p>Wybierz swoją rolę i sprawdź geolokalizację</p>
 
-<button id="driverBtn">Driver</button>
-<button id="passengerBtn">Passenger</button>
-<p id="role"></p>
+    <button id="driverBtn">Driver</button>
+    <button id="passengerBtn">Passenger</button>
+    <p id="role"></p>
 
-<div id="passengerDestinationDiv" style="display:none; margin-top:10px;">
-    <h3>Wskaż lokalizację docelową:</h3>
-    <input type="number" id="destLat" placeholder="###" step="0.001">
-    <input type="number" id="destLng" placeholder="###" step="0.001">
-    <button id="saveDestinationBtn">Zapisz cel</button>
-</div>
+    <div id="driverDestinationDiv">
+        <h3>Wskaż lokalizację docelową:</h3>
+        <input type="number" id="driverDestLat" placeholder="###" step="0.001">
+        <input type="number" id="driverDestLng" placeholder="###" step="0.001">
+        <button id="saveDriverDestinationBtn">Zapisz cel</button>
+    </div>
 
-<div id="map" style="display:none;"></div>
+    <div id="passengerDestinationDiv">
+        <h3>Wskaż lokalizację docelową:</h3>
+        <input type="number" id="destLat" placeholder="###" step="0.001">
+        <input type="number" id="destLng" placeholder="###" step="0.001">
+        <button id="saveDestinationBtn">Zapisz cel</button>
+    </div>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <div id="map"></div>
 
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
-  authDomain: "crossway-prototyp.firebaseapp.com",
-  projectId: "crossway-prototyp",
-  storageBucket: "crossway-prototyp.firebasestorage.app",
-  messagingSenderId: "852476458596",
-  appId: "1:852476458596:web:f901da16de7dc8a3551171",
-  databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-db.ref("session").remove();
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-let currentRole = null;
-let map, driverRouteControl, passengerRouteControl, commonPolyline;
-let passengerMarker = null;
+    <!-- Leaflet -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-// WebSocket
-const socket = new WebSocket("ws://localhost:8080"); // zmień URL jeśli potrzebne
+    <script>
+    // ===================== CONFIG FIREBASE =====================
+    const firebaseConfig = {
+      apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
+      authDomain: "crossway-prototyp.firebaseapp.com",
+      projectId: "crossway-prototyp",
+      storageBucket: "crossway-prototyp.firebasestorage.app",
+      messagingSenderId: "852476458596",
+      appId: "1:852476458596:web:f901da16de7dc8a3551171",
+      databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-socket.onmessage = (msg) => {
-    const data = JSON.parse(msg.data);
-    if(data.type === "driverData" && currentRole === "passenger") {
-        const driverStart = [data.data.start.lat, data.data.start.lng];
-        const driverEnd = [data.data.destination.lat, data.data.destination.lng];
+    // Reset sesji dla testów
+    db.ref("session").remove()
+      .then(() => console.log("Sesja zresetowana"))
+      .catch(err => console.error(err));
 
-        if(driverRouteControl) map.removeControl(driverRouteControl);
-        driverRouteControl = L.Routing.control({
-            waypoints: [driverStart, driverEnd],
-            routeWhileDragging: false,
-            addWaypoints: false
-        }).addTo(map);
+    let currentRole = null;
 
-        // Po wyznaczeniu trasy sprawdź wspólny odcinek
-        driverRouteControl.on('routesfound', () => {
-            if(passengerRouteControl) computeCommonSection();
-        });
-    }
-};
+    // ===================== FUNKCJA PRZYDZIAŁU ROLI =====================
+    function assignRole(role) {
+        currentRole = role;
+        document.getElementById("role").innerText = "Twoja rola: " + role;
 
-function assignRole(role) {
-    currentRole = role;
-    document.getElementById("role").innerText = "Twoja rola: " + role;
-    db.ref(`session/${role}`).set({role: role});
+        db.ref(`session/${role}`).set({role: role})
+          .then(() => console.log("Rola zapisana:", role))
+          .catch(err => console.error(err));
 
-    if(role === "driver" && "geolocation" in navigator) {
-        // Ciągłe aktualizowanie lokalizacji
-        navigator.geolocation.watchPosition(pos => {
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            const destLat = lat + 0.018;
-            const destLng = lng + 0.018;
-
-            db.ref("session/driver").set({
-                currentLocation: {latitude: lat, longitude: lng},
-                destination: {latitude: destLat, longitude: destLng}
-            });
-
-            if(socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({
-                    type: "driverData",
-                    data: {start:{lat,lng}, destination:{lat:destLat,lng:destLng}}
-                }));
-            }
-        });
-    }
-
-    if(role === "passenger") {
-        document.getElementById("passengerDestinationDiv").style.display = "block";
         document.getElementById("map").style.display = "block";
 
-        map = L.map('map').setView([52.1060, 19.9358], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
 
-        const passengerStart = [52.005, 19.905];  // demo
-        const passengerEnd = [52.020, 19.920];    // demo, później z inputa
-
-        passengerRouteControl = L.Routing.control({
-            waypoints: [passengerStart, passengerEnd],
-            routeWhileDragging: false,
-            addWaypoints: false
-        }).addTo(map);
-
-        passengerRouteControl.on('routesfound', () => {
-            if(driverRouteControl) computeCommonSection();
-        });
-    }
-}
-
-function computeCommonSection() {
-    if(!driverRouteControl || !passengerRouteControl) return;
-
-    const driverCoords = driverRouteControl.getRouter()._routes[0].coordinates;
-    const passengerCoords = passengerRouteControl.getRouter()._routes[0].coordinates;
-
-    let startIdx = -1;
-    for(let i=0;i<passengerCoords.length;i++){
-        for(let j=0;j<driverCoords.length;j++){
-            if(map.distance(passengerCoords[i], driverCoords[j]) <= 50) { startIdx=j; break; }
+                db.ref(`session/${role}/currentLocation`).set({ latitude: lat, longitude: lng });
+            }, err => console.error(err.message));
         }
-        if(startIdx>=0) break;
-    }
-    if(startIdx<0) return;
 
-    let endIdx = -1;
-    for(let i=passengerCoords.length-1;i>=0;i--){
-        for(let j=driverCoords.length-1;j>=0;j--){
-            if(map.distance(passengerCoords[i], driverCoords[j]) <= 50) { endIdx=j; break; }
+        if (role === "driver") {
+            document.getElementById("driverDestinationDiv").style.display = "block";
         }
-        if(endIdx>=0) break;
-    }
-    if(endIdx <= startIdx) return;
 
-    const common = driverCoords.slice(startIdx, endIdx+1);
-
-    if(commonPolyline) map.removeLayer(commonPolyline);
-    commonPolyline = L.polyline(common, {color:'red', weight:6}).addTo(map);
-}
-
-document.getElementById("driverBtn").addEventListener("click", ()=>assignRole("driver"));
-document.getElementById("passengerBtn").addEventListener("click", ()=>assignRole("passenger"));
-
-document.getElementById("saveDestinationBtn").addEventListener("click", ()=>{
-    const latSuffix = document.getElementById("destLat").value.trim();
-    const lngSuffix = document.getElementById("destLng").value.trim();
-    if(latSuffix.length===3 && lngSuffix.length===3){
-        const lat = 52.1 + parseInt(latSuffix)/10000; 
-        const lng = 19.9 + parseInt(lngSuffix)/10000;
-        db.ref("session/passenger/destination").set({latitude: lat, longitude: lng});
-
-        if(passengerMarker) map.removeLayer(passengerMarker);
-        passengerMarker = L.marker([lat,lng]).addTo(map).bindPopup("Twój cel").openPopup();
-
-        if(passengerRouteControl) {
-            const start = passengerRouteControl.getWaypoints()[0].latLng;
-            map.removeControl(passengerRouteControl);
-            passengerRouteControl = L.Routing.control({
-                waypoints: [start, L.latLng(lat,lng)],
-                routeWhileDragging: false,
-                addWaypoints: false
-            }).addTo(map);
-            passengerRouteControl.on('routesfound', () => { if(driverRouteControl) computeCommonSection(); });
+        if (role === "passenger") {
+            document.getElementById("passengerDestinationDiv").style.display = "block";
         }
-    } else alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
-});
-</script>
+    }
+
+    document.getElementById("driverBtn").addEventListener("click", () => assignRole("driver"));
+    document.getElementById("passengerBtn").addEventListener("click", () => assignRole("passenger"));
+
+    // ===================== MAPA =====================
+    const map = L.map('map').setView([52.1060, 19.9358], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+    const driverMarker = L.marker([0,0]).addTo(map);
+    const driverDestMarker = L.marker([0,0]).addTo(map);
+    const passengerMarker = L.marker([0,0]).addTo(map);
+    const passengerDestMarker = L.marker([0,0]).addTo(map);
+
+    const driverPolyline = L.polyline([], { color: 'blue', weight: 5 }).addTo(map);
+    const passengerPolyline = L.polyline([], { color: 'green', weight: 5 }).addTo(map);
+
+    // ===================== OSRM – TRASY PO DROGACH =====================
+    async function fetchRouteOSRM(start, end) {
+        const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data.routes || !data.routes.length) return [];
+        return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+    }
+
+    // ===================== AKTUALIZACJA MAPY =====================
+    async function updateMarkersAndLines() {
+        const ds = (await db.ref("session/driver/currentLocation").once("value")).val();
+        const de = (await db.ref("session/driver/destination").once("value")).val();
+        const ps = (await db.ref("session/passenger/currentLocation").once("value")).val();
+        const pe = (await db.ref("session/passenger/destination").once("value")).val();
+
+        if(ds && de){
+            const dStart = [ds.latitude, ds.longitude];
+            const dEnd = [de.latitude, de.longitude];
+            driverMarker.setLatLng(dStart);
+            driverDestMarker.setLatLng(dEnd);
+            const route = await fetchRouteOSRM(dStart, dEnd);
+            driverPolyline.setLatLngs(route);
+        }
+
+        if(ps && pe){
+            const pStart = [ps.latitude, ps.longitude];
+            const pEnd = [pe.latitude, pe.longitude];
+            passengerMarker.setLatLng(pStart);
+            passengerDestMarker.setLatLng(pEnd);
+            const route = await fetchRouteOSRM(pStart, pEnd);
+            passengerPolyline.setLatLngs(route);
+        }
+    }
+
+    db.ref("session").on("value", () => updateMarkersAndLines());
+
+    // ===================== ZAPIS LOKALIZACJI CELU =====================
+    document.getElementById("saveDestinationBtn").addEventListener("click", () => {
+        const latSuffix = document.getElementById("destLat").value.trim();
+        const lngSuffix = document.getElementById("destLng").value.trim();
+        if(latSuffix.length === 3 && lngSuffix.length === 3){
+            const lat = 52.1 + parseInt(latSuffix)/10000;
+            const lng = 19.9 + parseInt(lngSuffix)/10000;
+            db.ref("session/passenger/destination").set({ latitude: lat, longitude: lng });
+        } else {
+            alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
+        }
+    });
+
+    document.getElementById("saveDriverDestinationBtn").addEventListener("click", () => {
+        const latSuffix = document.getElementById("driverDestLat").value.trim();
+        const lngSuffix = document.getElementById("driverDestLng").value.trim();
+        if(latSuffix.length === 3 && lngSuffix.length === 3){
+            const lat = 52.1 + parseInt(latSuffix)/10000;
+            const lng = 19.9 + parseInt(lngSuffix)/10000;
+            db.ref("session/driver/destination").set({ latitude: lat, longitude: lng });
+        } else {
+            alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
+        }
+    });
+    </script>
 </body>
 </html>
