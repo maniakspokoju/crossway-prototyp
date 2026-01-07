@@ -1,10 +1,8 @@
-Działa - punkty na mapie połączone prostymi liniami
-
 <!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Crossway 2.2</title>
+    <title>Crossway</title>
 
 	<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
 
@@ -14,7 +12,7 @@ Działa - punkty na mapie połączone prostymi liniami
     </style>
 </head>
 <body>
-    <h1>Crossway 2.1</h1>
+    <h1>Crossway 2.2</h1>
     <p>Wybierz swoją rolę i sprawdź geolokalizację</p>
 
     <button id="driverBtn">Driver</button>
@@ -32,6 +30,9 @@ Działa - punkty na mapie połączone prostymi liniami
     <div id="map" style="display:none;"></div>
 
 
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
 
 
@@ -40,8 +41,7 @@ Działa - punkty na mapie połączone prostymi liniami
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
 
 <script>
 const firebaseConfig = {
@@ -123,37 +123,7 @@ let passengerRoute = null;
 
 
 
-    const updateMarkersAndLines = () => {
-      database.ref("session/driver/currentLocation").once("value").then(snap => {
-        const loc = snap.val();
-        if(loc) {
-          driverMarker.setLatLng([loc.latitude, loc.longitude]);
-          driverPolyline.setLatLngs([ [loc.latitude, loc.longitude] ]);
-        }
-      });
-      database.ref("session/driver/destination").once("value").then(snap => {
-        const loc = snap.val();
-        if(loc) {
-          driverDestMarker.setLatLng([loc.latitude, loc.longitude]);
-          driverPolyline.addLatLng([loc.latitude, loc.longitude]);
-        }
-      });
-      database.ref("session/passenger/currentLocation").once("value").then(snap => {
-        const loc = snap.val();
-        if(loc) {
-          passengerMarker.setLatLng([loc.latitude, loc.longitude]);
-          passengerPolyline.setLatLngs([ [loc.latitude, loc.longitude] ]);
-        }
-      });
-      database.ref("session/passenger/destination").once("value").then(snap => {
-        const loc = snap.val();
-        if(loc) {
-          passengerDestMarker.setLatLng([loc.latitude, loc.longitude]);
-          passengerPolyline.addLatLng([loc.latitude, loc.longitude]);
-        }
-      });
-    };
-
+ 
    const updateMarkersAndLines = async () => {
 
   const driverCurrentSnap = await database.ref("session/driver/currentLocation").once("value");
