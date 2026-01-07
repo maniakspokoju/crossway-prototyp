@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Crossway 2.2</title>
+<title>Crossway 2.3</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
 <style>
@@ -10,7 +10,7 @@
 </style>
 </head>
 <body>
-<h1>Crossway 2.2</h1>
+<h1>Crossway 2.3</h1>
 <p>Wybierz swoją rolę i sprawdź geolokalizację</p>
 
 <button id="driverBtn">Driver</button>
@@ -43,26 +43,59 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-
 db.ref("session").remove();
 
 let currentRole = null;
 let map, driverRouteControl, passengerRouteControl, commonPolyline;
+let passengerMarker = null;
+
+// WebSocket
+const socket = new WebSocket("ws://localhost:8080"); // zmień URL jeśli potrzebne
+
+socket.onmessage = (msg) => {
+    const data = JSON.parse(msg.data);
+    if(data.type === "driverData" && currentRole === "passenger") {
+        const driverStart = [data.data.start.lat, data.data.start.lng];
+        const driverEnd = [data.data.destination.lat, data.data.destination.lng];
+
+        if(driverRouteControl) map.removeControl(driverRouteControl);
+        driverRouteControl = L.Routing.control({
+            waypoints: [driverStart, driverEnd],
+            routeWhileDragging: false,
+            addWaypoints: false
+        }).addTo(map);
+
+        // Po wyznaczeniu trasy sprawdź wspólny odcinek
+        driverRouteControl.on('routesfound', () => {
+            if(passengerRouteControl) computeCommonSection();
+        });
+    }
+};
 
 function assignRole(role) {
     currentRole = role;
     document.getElementById("role").innerText = "Twoja rola: " + role;
-
     db.ref(`session/${role}`).set({role: role});
 
     if(role === "driver" && "geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(pos => {
+        // Ciągłe aktualizowanie lokalizacji
+        navigator.geolocation.watchPosition(pos => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
-            db.ref("session/driver/currentLocation").set({latitude: lat, longitude: lng});
             const destLat = lat + 0.018;
             const destLng = lng + 0.018;
-            db.ref("session/driver/destination").set({latitude: destLat, longitude: destLng});
+
+            db.ref("session/driver").set({
+                currentLocation: {latitude: lat, longitude: lng},
+                destination: {latitude: destLat, longitude: destLng}
+            });
+
+            if(socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: "driverData",
+                    data: {start:{lat,lng}, destination:{lat:destLat,lng:destLng}}
+                }));
+            }
         });
     }
 
@@ -70,34 +103,20 @@ function assignRole(role) {
         document.getElementById("passengerDestinationDiv").style.display = "block";
         document.getElementById("map").style.display = "block";
 
-        map = L.map('map').setView([52.0, 19.9], 12);
+        map = L.map('map').setView([52.1060, 19.9358], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
 
-        const driverStart = [52.001, 19.901];  // tymczasowe punkty demo
-        const driverEnd = [52.018, 19.918];
-        const passengerStart = [52.005, 19.905];
-        const passengerEnd = [52.020, 19.920];
-
-        driverRouteControl = L.Routing.control({
-            waypoints: [driverStart, driverEnd],
-            routeWhileDragging: false,
-            addWaypoints: false,
-            createMarker: (i, wp) => L.marker(wp.latLng).bindPopup(i===0?"Driver start":"Driver end")
-        }).addTo(map);
+        const passengerStart = [52.005, 19.905];  // demo
+        const passengerEnd = [52.020, 19.920];    // demo, później z inputa
 
         passengerRouteControl = L.Routing.control({
             waypoints: [passengerStart, passengerEnd],
             routeWhileDragging: false,
-            addWaypoints: false,
-            createMarker: (i, wp) => L.marker(wp.latLng).bindPopup(i===0?"Passenger start":"Passenger end")
+            addWaypoints: false
         }).addTo(map);
 
-        // Czekaj na obliczenie obu tras, potem wyznacz wspólny odcinek
-        driverRouteControl.on('routesfound', () => {
-            if(passengerRouteControl.getRouter()._routes.length) computeCommonSection();
-        });
         passengerRouteControl.on('routesfound', () => {
-            if(driverRouteControl.getRouter()._routes.length) computeCommonSection();
+            if(driverRouteControl) computeCommonSection();
         });
     }
 }
@@ -108,36 +127,26 @@ function computeCommonSection() {
     const driverCoords = driverRouteControl.getRouter()._routes[0].coordinates;
     const passengerCoords = passengerRouteControl.getRouter()._routes[0].coordinates;
 
-    // Wspólny odcinek
-    let common = [];
-
-    // Znajdź początek wspólnej trasy (pierwsze dopasowanie w tolerancji 50m)
     let startIdx = -1;
-    for(let i=0;i<passengerCoords.length;i++) {
-        for(let j=0;j<driverCoords.length;j++) {
-            const dist = map.distance(passengerCoords[i], driverCoords[j]);
-            if(dist <= 50) { startIdx = j; break; }
+    for(let i=0;i<passengerCoords.length;i++){
+        for(let j=0;j<driverCoords.length;j++){
+            if(map.distance(passengerCoords[i], driverCoords[j]) <= 50) { startIdx=j; break; }
         }
         if(startIdx>=0) break;
     }
+    if(startIdx<0) return;
 
-    if(startIdx<0) return; // brak wspólnego odcinka
-
-    // Szukamy końca wspólnej trasy od końca
     let endIdx = -1;
-    for(let i=passengerCoords.length-1;i>=0;i--) {
-        for(let j=driverCoords.length-1;j>=0;j--) {
-            const dist = map.distance(passengerCoords[i], driverCoords[j]);
-            if(dist <= 50) { endIdx = j; break; }
+    for(let i=passengerCoords.length-1;i>=0;i--){
+        for(let j=driverCoords.length-1;j>=0;j--){
+            if(map.distance(passengerCoords[i], driverCoords[j]) <= 50) { endIdx=j; break; }
         }
         if(endIdx>=0) break;
     }
-
     if(endIdx <= startIdx) return;
 
-    common = driverCoords.slice(startIdx, endIdx+1);
+    const common = driverCoords.slice(startIdx, endIdx+1);
 
-    // Dodajemy polilinię wspólnego odcinka
     if(commonPolyline) map.removeLayer(commonPolyline);
     commonPolyline = L.polyline(common, {color:'red', weight:6}).addTo(map);
 }
@@ -149,9 +158,23 @@ document.getElementById("saveDestinationBtn").addEventListener("click", ()=>{
     const latSuffix = document.getElementById("destLat").value.trim();
     const lngSuffix = document.getElementById("destLng").value.trim();
     if(latSuffix.length===3 && lngSuffix.length===3){
-        const lat = 52.0 + parseInt(latSuffix)/10000;
+        const lat = 52.1 + parseInt(latSuffix)/10000; 
         const lng = 19.9 + parseInt(lngSuffix)/10000;
         db.ref("session/passenger/destination").set({latitude: lat, longitude: lng});
+
+        if(passengerMarker) map.removeLayer(passengerMarker);
+        passengerMarker = L.marker([lat,lng]).addTo(map).bindPopup("Twój cel").openPopup();
+
+        if(passengerRouteControl) {
+            const start = passengerRouteControl.getWaypoints()[0].latLng;
+            map.removeControl(passengerRouteControl);
+            passengerRouteControl = L.Routing.control({
+                waypoints: [start, L.latLng(lat,lng)],
+                routeWhileDragging: false,
+                addWaypoints: false
+            }).addTo(map);
+            passengerRouteControl.on('routesfound', () => { if(driverRouteControl) computeCommonSection(); });
+        }
     } else alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
 });
 </script>
