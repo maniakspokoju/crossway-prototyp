@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-<h1>Crossway – fundament 1.4</h1>
+<h1>Crossway – fundament 1.5</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -81,6 +81,14 @@ button:active {
 <input id="destLng" placeholder="###">
 <button id="saveDestinationBtn">Zapisz</button>
 </div>
+
+<div id="passengerStartDiv" style="margin-top:15px; display:none;">
+  <h3>Start pasażera (zmiana dla testów)</h3>
+  <input type="number" id="startLat" placeholder="Lat ###" step="0.001">
+  <input type="number" id="startLng" placeholder="Lng ###" step="0.001">
+  <button id="saveStartBtn">Zapisz start</button>
+</div>
+
 
 <div id="map"></div>
 
@@ -223,6 +231,8 @@ function assign(role) {
   });
   if(role==="driver") driverDestinationDiv.style.display="block";
   if(role==="passenger") passengerDestinationDiv.style.display="block";
+if(role==="passenger") passengerStartDiv.style.display="block";
+
 }
 
 driverBtn.onclick = ()=>assign("driver");
@@ -273,6 +283,20 @@ saveDestinationBtn.onclick = ()=>{
     longitude: 19.9 + destLng.value/10000
   });
 };
+
+// ===================== ZMIANA STARTU PASAŻERA =====================
+saveStartBtn.addEventListener("click", () => {
+  const lat = parseFloat(startLat.value);
+  const lng = parseFloat(startLng.value);
+  if(!isNaN(lat) && !isNaN(lng)) {
+    db.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng })
+      .then(() => console.log("Nowa lokalizacja startowa pasażera zapisana:", lat, lng))
+      .catch(err => console.error(err));
+  } else {
+    alert("Wprowadź poprawne wartości liczbowe dla szerokości i długości geograficznej!");
+  }
+});
+
 </script>
 </body>
 </html>
