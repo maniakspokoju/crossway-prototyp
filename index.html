@@ -10,10 +10,6 @@ body {
     margin: 10px;
 }
 
-<div id="startInfo" style="margin-bottom:10px; font-family:sans-serif; font-weight:bold; font-size:18px;">
-  <span id="startLabel">Start: </span><span id="startValue">---</span>
-</div>
-
 /* MAPA */
 #map {
     height: 1000px;
@@ -66,7 +62,7 @@ button:active {
 </head>
 
 <body>
-<h1>Crossway – fundament 1.6</h1>
+<h1>Crossway – fundament 1.7</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -172,17 +168,18 @@ function findClosestIndex(point, path) {
 }
 
 /* ================= OSRM ================= */
-async function route(a, b) {
-  const url = `https://router.project-osrm.org/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`;
-  const r = await fetch(url).then(r=>r.json());
-  return r.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
-}
-
-function updateStartInfo(roleData) {
-  const el = document.getElementById("startValue");
-  if (!el || !roleData?.currentLocation) return;
-
-  el.innerText = roleData.currentLocation.latitude.toFixed(5) + ", " + roleData.currentLocation.longitude.toFixed(5);
+async function route(a, b, mode = "driving") {
+  // mode może być "driving", "walking" lub "cycling"
+  const url = `https://router.project-osrm.org/route/v1/${mode}/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`;
+  try {
+    const r = await fetch(url);
+    if(!r.ok) throw new Error("OSRM response not ok");
+    const data = await r.json();
+    return data.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+  } catch(e) {
+    console.error("Błąd fetch do OSRM:", e);
+    return []; // pusty path jeśli OSRM nie odpowiada
+  }
 }
 
 
@@ -194,19 +191,18 @@ async function update() {
   const ps = (await db.ref("session/passenger").once("value")).val();
   if(!ds?.currentLocation || !ds?.destination || !ps?.currentLocation || !ps?.destination) return;
 
-if(currentRole === "driver") updateStartInfo(ds);
-if(currentRole === "passenger") updateStartInfo(ps);
+ const dPath = await route(
+  [ds.currentLocation.latitude, ds.currentLocation.longitude],
+  [ds.destination.latitude, ds.destination.longitude],
+  "driving" // kierowca samochodem
+);
 
+const pPath = await route(
+  [ps.currentLocation.latitude, ps.currentLocation.longitude],
+  [ps.destination.latitude, ps.destination.longitude],
+  "walking" // pasażer pieszo
+);
 
-  const dPath = await route(
-    [ds.currentLocation.latitude, ds.currentLocation.longitude],
-    [ds.destination.latitude, ds.destination.longitude]
-  );
-
-  const pPath = await route(
-    [ps.currentLocation.latitude, ps.currentLocation.longitude],
-    [ps.destination.latitude, ps.destination.longitude]
-  );
 
   driverLine.setLatLngs(dPath);
   passengerLine.setLatLngs(pPath);
