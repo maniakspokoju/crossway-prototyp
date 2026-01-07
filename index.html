@@ -4,7 +4,10 @@ Działa - punkty na mapie połączone prostymi liniami
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Crossway 2.1</title>
+    <title>Crossway 2.2</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <style>
         #map { height: 500px; margin-top: 20px; }
@@ -27,6 +30,11 @@ Działa - punkty na mapie połączone prostymi liniami
     </div>
 
     <div id="map" style="display:none;"></div>
+
+
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
+
 
 <!-- Firebase App (Core SDK) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -104,8 +112,16 @@ function assignRole(role) {
     const passengerDestMarker = L.marker([0,0], {icon: L.icon({iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize: [25,25]})}).addTo(map).bindPopup("Passenger Destination");
 
     // Linie tras
-    let driverPolyline = L.polyline([], {color: 'blue'}).addTo(map);
-    let passengerPolyline = L.polyline([], {color: 'green'}).addTo(map);
+  //  let driverPolyline = L.polyline([], {color: 'blue'}).addTo(map);
+  //  let passengerPolyline = L.polyline([], {color: 'green'}).addTo(map);
+
+
+
+let driverRoute = null;
+let passengerRoute = null;
+
+
+
 
     const updateMarkersAndLines = () => {
       database.ref("session/driver/currentLocation").once("value").then(snap => {
@@ -138,25 +154,60 @@ function assignRole(role) {
       });
     };
 
-    updateMarkersAndLines();
-    setInterval(updateMarkersAndLines, 2000);
-  }
-}
+   const updateMarkersAndLines = async () => {
 
-// Zapis lokalizacji docelowej pasażera (skrótowe wpisy)
-document.getElementById("saveDestinationBtn").addEventListener("click", () => {
-  let latSuffix = document.getElementById("destLat").value.trim();
-  let lngSuffix = document.getElementById("destLng").value.trim();
-  if(latSuffix.length === 3 && lngSuffix.length === 3) {
-    const lat = 52.0 + parseInt(latSuffix)/10000;
-    const lng = 19.9 + parseInt(lngSuffix)/10000;
-    database.ref("session/passenger/destination").set({ latitude: lat, longitude: lng })
-      .then(() => console.log("Docelowa lokalizacja passenger zapisana:", lat, lng))
-      .catch(err => console.error(err));
-  } else {
-    alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
+  const driverCurrentSnap = await database.ref("session/driver/currentLocation").once("value");
+  const driverDestSnap = await database.ref("session/driver/destination").once("value");
+  const passengerCurrentSnap = await database.ref("session/passenger/currentLocation").once("value");
+  const passengerDestSnap = await database.ref("session/passenger/destination").once("value");
+
+  const dCur = driverCurrentSnap.val();
+  const dDest = driverDestSnap.val();
+  const pCur = passengerCurrentSnap.val();
+  const pDest = passengerDestSnap.val();
+
+  if (dCur) driverMarker.setLatLng([dCur.latitude, dCur.longitude]);
+  if (dDest) driverDestMarker.setLatLng([dDest.latitude, dDest.longitude]);
+  if (pCur) passengerMarker.setLatLng([pCur.latitude, pCur.longitude]);
+  if (pDest) passengerDestMarker.setLatLng([pDest.latitude, pDest.longitude]);
+
+  // ===== TRASA DRIVER =====
+  if (dCur && dDest) {
+    if (driverRoute) map.removeControl(driverRoute);
+
+    driverRoute = L.Routing.control({
+      waypoints: [
+        L.latLng(dCur.latitude, dCur.longitude),
+        L.latLng(dDest.latitude, dDest.longitude)
+      ],
+      addWaypoints: false,
+      draggableWaypoints: false,
+      routeWhileDragging: false,
+      show: false,
+      createMarker: () => null,
+      lineOptions: { styles: [{ color: 'blue', weight: 5 }] }
+    }).addTo(map);
   }
-});
+
+  // ===== TRASA PASSENGER =====
+  if (pCur && pDest) {
+    if (passengerRoute) map.removeControl(passengerRoute);
+
+    passengerRoute = L.Routing.control({
+      waypoints: [
+        L.latLng(pCur.latitude, pCur.longitude),
+        L.latLng(pDest.latitude, pDest.longitude)
+      ],
+      addWaypoints: false,
+      draggableWaypoints: false,
+      routeWhileDragging: false,
+      show: false,
+      createMarker: () => null,
+      lineOptions: { styles: [{ color: 'green', weight: 5 }] }
+    }).addTo(map);
+  }
+};
+
 
 // Obsługa przycisków
 document.getElementById("driverBtn").addEventListener("click", () => assignRole("driver"));
