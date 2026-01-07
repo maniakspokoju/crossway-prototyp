@@ -12,7 +12,7 @@
     </style>
 </head>
 <body>
-    <h1>Crossway 2.2 – trasy po drogach</h1>
+    <h1>Crossway 2.3 – trasy po drogach</h1>
     <p>Wybierz swoją rolę i sprawdź geolokalizację</p>
 
     <button id="driverBtn">Driver</button>
@@ -155,6 +155,11 @@
             alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
         }
     });
-    </script>
+// Obsługa przycisków
+document.getElementById("driverBtn").addEventListener("click", () => assignRole("driver"));
+document.getElementById("passengerBtn").addEventListener("click", () => assignRole("passenger"));
+</script>
+</body>
+</html>
 </body>
 </html>
