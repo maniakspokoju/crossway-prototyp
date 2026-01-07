@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-<h1>Crossway – fundament 1.7</h1>
+<h1>Crossway – fundament 1.8</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -169,22 +169,24 @@ async function route(a, b) {
 
 
 function updateInfoPanels(ds, de, ps, pe) {
-  if(ds?.currentLocation) 
-    document.getElementById("driverStartInfo").innerText =
-      ds.currentLocation.latitude.toFixed(5) + ", " + ds.currentLocation.longitude.toFixed(5);
+  const driverStartEl = document.getElementById("driverStartInfo");
+  const driverEndEl = document.getElementById("driverEndInfo");
+  const passengerStartEl = document.getElementById("passengerStartInfo");
+  const passengerEndEl = document.getElementById("passengerEndInfo");
 
-  if(ds?.destination) 
-    document.getElementById("driverEndInfo").innerText =
-      ds.destination.latitude.toFixed(5) + ", " + ds.destination.longitude.toFixed(5);
+  if(driverStartEl && ds?.currentLocation) 
+    driverStartEl.innerText = ds.currentLocation.latitude.toFixed(5) + ", " + ds.currentLocation.longitude.toFixed(5);
 
-  if(ps?.currentLocation) 
-    document.getElementById("passengerStartInfo").innerText =
-      ps.currentLocation.latitude.toFixed(5) + ", " + ps.currentLocation.longitude.toFixed(5);
+  if(driverEndEl && ds?.destination)
+    driverEndEl.innerText = ds.destination.latitude.toFixed(5) + ", " + ds.destination.longitude.toFixed(5);
 
-  if(ps?.destination) 
-    document.getElementById("passengerEndInfo").innerText =
-      ps.destination.latitude.toFixed(5) + ", " + ps.destination.longitude.toFixed(5);
+  if(passengerStartEl && ps?.currentLocation)
+    passengerStartEl.innerText = ps.currentLocation.latitude.toFixed(5) + ", " + ps.currentLocation.longitude.toFixed(5);
+
+  if(passengerEndEl && ps?.destination)
+    passengerEndEl.innerText = ps.destination.latitude.toFixed(5) + ", " + ps.destination.longitude.toFixed(5);
 }
+
 
 
 
