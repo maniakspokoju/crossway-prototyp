@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-<h1>Crossway – fundament 1.2</h1>
+<h1>Crossway – fundament 1.3</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -104,6 +104,31 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 const driverLine = L.polyline([], { color: "blue", weight: 5 }).addTo(map);
 const passengerLine = L.polyline([], { color: "green", weight: 5 }).addTo(map);
 const overlapLine = L.polyline([], { color: "red", weight: 7 }).addTo(map);
+
+/* ================= MARKERY ================= */
+
+// Ikony liter K i P
+const iconK = L.divIcon({
+  html: "<div style='font-size:26px;font-weight:bold;color:#2f6fff'>K</div>",
+  className: "",
+  iconSize: [30, 30],
+  iconAnchor: [15, 15]
+});
+
+const iconP = L.divIcon({
+  html: "<div style='font-size:26px;font-weight:bold;color:#2fbf6f'>P</div>",
+  className: "",
+  iconSize: [30, 30],
+  iconAnchor: [15, 15]
+});
+
+// Markery
+const driverStartMarker = L.marker([0,0], { icon: iconK }).addTo(map);
+const passengerStartMarker = L.marker([0,0], { icon: iconP }).addTo(map);
+
+const driverEndMarker = L.marker([0,0]).addTo(map);
+const passengerEndMarker = L.marker([0,0]).addTo(map);
+
 
 /* ================= UTILS ================= */
 const TOLERANCE_METERS = 30;
@@ -152,6 +177,15 @@ async function update() {
 
   driverLine.setLatLngs(dPath);
   passengerLine.setLatLngs(pPath);
+
+/* ===== STARTY ===== */
+driverStartMarker.setLatLng(dPath[0]);
+passengerStartMarker.setLatLng(pPath[0]);
+
+/* ===== CELE ===== */
+driverEndMarker.setLatLng(dPath[dPath.length - 1]);
+passengerEndMarker.setLatLng(pPath[pPath.length - 1]);
+
 
   const startPassenger = [ps.currentLocation.latitude, ps.currentLocation.longitude];
   const startIdx = findClosestIndex(startPassenger, dPath);
