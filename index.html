@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-<h1>Crossway – fundament 1.5</h1>
+<h1>Crossway – fundament 1.6</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -70,24 +70,26 @@ button:active {
 
 <div id="driverDestinationDiv">
 <h3>Cel kierowcy</h3>
-<input id="driverDestLat" placeholder="###">
-<input id="driverDestLng" placeholder="###">
+<input id="driverDestLat" placeholder="###" step="1" inputmode="numeric">
+<input id="driverDestLng" placeholder="###" step="1" inputmode="numeric">
 <button id="saveDriverDestinationBtn">Zapisz</button>
 </div>
 
 <div id="passengerDestinationDiv">
 <h3>Cel pasażera</h3>
-<input id="destLat" placeholder="###">
-<input id="destLng" placeholder="###">
+<input id="destLat" placeholder="###" step="1" inputmode="numeric">
+<input id="destLng" placeholder="###" step="1" inputmode="numeric">
 <button id="saveDestinationBtn">Zapisz</button>
 </div>
 
 <div id="passengerStartDiv" style="margin-top:15px; display:none;">
   <h3>Start pasażera (zmiana dla testów)</h3>
-  <input type="number" id="startLat" placeholder="Lat ###" step="0.001">
-  <input type="number" id="startLng" placeholder="Lng ###" step="0.001">
+  <input type="number" id="startLat" placeholder="###" step="1" inputmode="numeric">
+  <input type="number" id="startLng" placeholder="###" step="1" inputmode="numeric">
   <button id="saveStartBtn">Zapisz start</button>
+  <p style="font-size:14px; color:gray;">Wpisz dokładnie 3 cyfry: 52.1### / 19.9###</p>
 </div>
+
 
 
 <div id="map"></div>
@@ -286,14 +288,18 @@ saveDestinationBtn.onclick = ()=>{
 
 // ===================== ZMIANA STARTU PASAŻERA =====================
 saveStartBtn.addEventListener("click", () => {
-  const lat = parseFloat(startLat.value);
-  const lng = parseFloat(startLng.value);
-  if(!isNaN(lat) && !isNaN(lng)) {
+  const latSuffix = startLat.value.trim();
+  const lngSuffix = startLng.value.trim();
+
+  if(latSuffix.length === 3 && lngSuffix.length === 3){
+    const lat = 52.1 + parseInt(latSuffix)/10000;
+    const lng = 19.9 + parseInt(lngSuffix)/10000;
+
     db.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng })
       .then(() => console.log("Nowa lokalizacja startowa pasażera zapisana:", lat, lng))
       .catch(err => console.error(err));
   } else {
-    alert("Wprowadź poprawne wartości liczbowe dla szerokości i długości geograficznej!");
+    alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
   }
 });
 
