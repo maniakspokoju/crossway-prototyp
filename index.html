@@ -1,165 +1,220 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <title>Crossway 2.2 – trasy po drogach</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-    <style>
-        body { font-family: sans-serif; margin: 10px; }
-        #map { height: 500px; margin-top: 20px; display:none; }
-        #passengerDestinationDiv { display:none; margin-top:10px; }
-        input { width: 100px; margin-right: 5px; }
-    </style>
+<meta charset="UTF-8">
+<title>Crossway 2.2 – wspólny odcinek</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
+<style>
+  #map { height: 500px; margin-top: 20px; }
+</style>
 </head>
 <body>
-    <h1>Crossway 2.5 – trasy po drogach</h1>
-    <p>Wybierz swoją rolę i sprawdź geolokalizację</p>
+<h1>Crossway 2.2 – wspólny odcinek</h1>
 
-    <button id="driverBtn">Driver</button>
-    <button id="passengerBtn">Passenger</button>
-    <p id="role"></p>
+<p>Wybierz swoją rolę i sprawdź geolokalizację</p>
+<button id="driverBtn">Driver</button>
+<button id="passengerBtn">Passenger</button>
+<p id="role"></p>
 
-    <div id="passengerDestinationDiv">
-        <h3>Wskaż lokalizację docelową:</h3>
-        <input type="number" id="destLat" placeholder="###" step="0.001">
-        <input type="number" id="destLng" placeholder="###" step="0.001">
-        <button id="saveDestinationBtn">Zapisz cel</button>
-    </div>
+<div id="passengerDestinationDiv" style="display:none; margin-top:10px;">
+  <h3>Wskaż lokalizację docelową:</h3>
+  <input type="number" id="destLat" placeholder="###" step="0.001">
+  <input type="number" id="destLng" placeholder="###" step="0.001">
+  <button id="saveDestinationBtn">Zapisz cel</button>
+</div>
 
-    <div id="map"></div>
+<div id="map" style="display:none;"></div>
 
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<!-- Firebase App (Core SDK) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-    <!-- Leaflet -->
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<!-- Leaflet JS + Routing Machine -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
 
-    <script>
-    // ===================== CONFIG FIREBASE =====================
-    const firebaseConfig = {
-      apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
-      authDomain: "crossway-prototyp.firebaseapp.com",
-      projectId: "crossway-prototyp",
-      storageBucket: "crossway-prototyp.firebasestorage.app",
-      messagingSenderId: "852476458596",
-      appId: "1:852476458596:web:f901da16de7dc8a3551171",
-      databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
+  authDomain: "crossway-prototyp.firebaseapp.com",
+  projectId: "crossway-prototyp",
+  storageBucket: "crossway-prototyp.firebasestorage.app",
+  messagingSenderId: "852476458596",
+  appId: "1:852476458596:web:f901da16de7dc8a3551171",
+  databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-    // Reset sesji dla testów
-    db.ref("session").remove()
-      .then(() => console.log("Sesja zresetowana"))
-      .catch(err => console.error(err));
+let currentRole = null;
+let map, driverMarker, passengerMarker, driverDestMarker, passengerDestMarker;
+let driverRouteControl, passengerRouteControl;
+let commonPolyline;
 
-    let currentRole = null;
+const TOLERANCE_METERS = 30; // tolerancja GPS dla wspólnej trasy
 
-    // ===================== FUNKCJA PRZYDZIAŁU ROLI =====================
-    function assignRole(role) {
-        currentRole = role;
-        document.getElementById("role").innerText = "Twoja rola: " + role;
+function assignRole(role) {
+  currentRole = role;
+  document.getElementById("role").innerText = "Twoja rola: " + role;
+  db.ref(`session/${role}`).set({role});
 
-        db.ref(`session/${role}`).set({role: role})
-          .then(() => console.log("Rola zapisana:", role))
-          .catch(err => console.error(err));
-
-        if (role === "driver" && "geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(pos => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-
-                db.ref("session/driver/currentLocation").set({ latitude: lat, longitude: lng });
-                const destLat = lat + 0.018;
-                const destLng = lng + 0.018;
-                db.ref("session/driver/destination").set({ latitude: destLat, longitude: destLng });
-            }, err => console.error(err.message));
-        }
-
-        if (role === "passenger") {
-            document.getElementById("passengerDestinationDiv").style.display = "block";
-            document.getElementById("map").style.display = "block";
-
-            if ("geolocation" in navigator) {
-                navigator.geolocation.getCurrentPosition(pos => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    db.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng });
-                }, err => console.error(err.message));
-            }
-        }
-    }
-
-    document.getElementById("driverBtn").addEventListener("click", () => assignRole("driver"));
-    document.getElementById("passengerBtn").addEventListener("click", () => assignRole("passenger"));
-
-    // ===================== MAPA =====================
-    const map = L.map('map').setView([52.2297, 21.0122], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-
-    const driverMarker = L.marker([0,0]).addTo(map);
-    const driverDestMarker = L.marker([0,0]).addTo(map);
-    const passengerMarker = L.marker([0,0]).addTo(map);
-    const passengerDestMarker = L.marker([0,0]).addTo(map);
-
-    const driverPolyline = L.polyline([], { color: 'blue', weight: 5 }).addTo(map);
-    const passengerPolyline = L.polyline([], { color: 'green', weight: 5 }).addTo(map);
-
-    // ===================== OSRM – TRASY PO DROGACH =====================
-    async function fetchRouteOSRM(start, end) {
-        const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (!data.routes || !data.routes.length) return [];
-        return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-    }
-
-    // ===================== AKTUALIZACJA MAPY =====================
-    async function updateMarkersAndLines() {
-        const ds = (await db.ref("session/driver/currentLocation").once("value")).val();
-        const de = (await db.ref("session/driver/destination").once("value")).val();
-        const ps = (await db.ref("session/passenger/currentLocation").once("value")).val();
-        const pe = (await db.ref("session/passenger/destination").once("value")).val();
-
-        if(ds && de){
-            const dStart = [ds.latitude, ds.longitude];
-            const dEnd = [de.latitude, de.longitude];
-            driverMarker.setLatLng(dStart);
-            driverDestMarker.setLatLng(dEnd);
-            const route = await fetchRouteOSRM(dStart, dEnd);
-            driverPolyline.setLatLngs(route);
-        }
-
-        if(ps && pe){
-            const pStart = [ps.latitude, ps.longitude];
-            const pEnd = [pe.latitude, pe.longitude];
-            passengerMarker.setLatLng(pStart);
-            passengerDestMarker.setLatLng(pEnd);
-            const route = await fetchRouteOSRM(pStart, pEnd);
-            passengerPolyline.setLatLngs(route);
-        }
-    }
-
-    db.ref("session").on("value", () => updateMarkersAndLines());
-
-    // ===================== ZAPIS LOKALIZACJI PASAŻERA =====================
-    document.getElementById("saveDestinationBtn").addEventListener("click", () => {
-        const latSuffix = document.getElementById("destLat").value.trim();
-        const lngSuffix = document.getElementById("destLng").value.trim();
-        if(latSuffix.length === 3 && lngSuffix.length === 3){
-            const lat = 52.1 + parseInt(latSuffix)/10000;
-            const lng = 19.9 + parseInt(lngSuffix)/10000;
-            db.ref("session/passenger/destination").set({ latitude: lat, longitude: lng });
-        } else {
-            alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
-        }
+  if(role === "driver" && "geolocation" in navigator){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat=pos.coords.latitude, lng=pos.coords.longitude;
+      db.ref("session/driver/currentLocation").set({latitude:lat, longitude:lng});
+      db.ref("session/driver/destination").set({latitude:lat+0.018, longitude:lng+0.018});
     });
-// Obsługa przycisków
-document.getElementById("driverBtn").addEventListener("click", () => assignRole("driver"));
-document.getElementById("passengerBtn").addEventListener("click", () => assignRole("passenger"));
+  }
+
+  if(role==="passenger"){
+    document.getElementById("passengerDestinationDiv").style.display="block";
+    document.getElementById("map").style.display="block";
+
+    if("geolocation" in navigator){
+      navigator.geolocation.getCurrentPosition(pos=>{
+        db.ref("session/passenger/currentLocation").set({latitude:pos.coords.latitude, longitude:pos.coords.longitude});
+      });
+    }
+
+    initMap();
+    updateRoutesAndCommon();
+    setInterval(updateRoutesAndCommon,2000);
+  }
+}
+
+// ===================== Inicjalizacja mapy =====================
+function initMap(){
+  map = L.map("map").setView([52.1060, 19.9358],12);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
+
+  driverMarker = L.marker([0,0]).addTo(map).bindPopup("Driver");
+  passengerMarker = L.marker([0,0]).addTo(map).bindPopup("Passenger");
+  driverDestMarker = L.marker([0,0], {icon:L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize:[25,25]})}).addTo(map).bindPopup("Driver Destination");
+  passengerDestMarker = L.marker([0,0], {icon:L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize:[25,25]})}).addTo(map).bindPopup("Passenger Destination");
+}
+
+// ===================== Aktualizacja tras i wspólnej =====================
+function updateRoutesAndCommon(){
+  Promise.all([
+    db.ref("session/driver/currentLocation").once("value"),
+    db.ref("session/driver/destination").once("value"),
+    db.ref("session/passenger/currentLocation").once("value"),
+    db.ref("session/passenger/destination").once("value")
+  ]).then(([drvCurSnap, drvDestSnap, pasCurSnap, pasDestSnap])=>{
+    const drvCur = drvCurSnap.val(), drvDest = drvDestSnap.val(),
+          pasCur = pasCurSnap.val(), pasDest = pasDestSnap.val();
+    if(!drvCur || !drvDest || !pasCur || !pasDest) return;
+
+    driverMarker.setLatLng([drvCur.latitude, drvCur.longitude]);
+    driverDestMarker.setLatLng([drvDest.latitude, drvDest.longitude]);
+    passengerMarker.setLatLng([pasCur.latitude, pasCur.longitude]);
+    passengerDestMarker.setLatLng([pasDest.latitude, pasDest.longitude]);
+
+    // Usuń stare kontrolki tras
+    if(driverRouteControl) map.removeControl(driverRouteControl);
+    if(passengerRouteControl) map.removeControl(passengerRouteControl);
+    if(commonPolyline){ map.removeLayer(commonPolyline); commonPolyline=null;}
+
+    // ===================== Trasa kierowcy =====================
+    driverRouteControl = L.Routing.control({
+      waypoints:[
+        L.latLng(drvCur.latitude, drvCur.longitude),
+        L.latLng(drvDest.latitude, drvDest.longitude)
+      ],
+      lineOptions: {styles:[{color:'blue',weight:5}]},
+      addWaypoints:false,
+      draggableWaypoints:false,
+      fitSelectedRoutes:true,
+      show:false
+    }).addTo(map);
+
+    // ===================== Trasa pasażera =====================
+    passengerRouteControl = L.Routing.control({
+      waypoints:[
+        L.latLng(pasCur.latitude, pasCur.longitude),
+        L.latLng(pasDest.latitude, pasDest.longitude)
+      ],
+      lineOptions: {styles:[{color:'green',weight:5}]},
+      addWaypoints:false,
+      draggableWaypoints:false,
+      fitSelectedRoutes:false,
+      show:false
+    }).addTo(map);
+
+    // Czekamy chwilę aż routing zakończy obliczenia tras
+    setTimeout(()=>computeCommonSection(),1500);
+  });
+}
+
+// ===================== Obliczanie wspólnego odcinka =====================
+function computeCommonSection(){
+  const drvCoords = driverRouteControl.getPlan().getWaypoints().map(wp=>[wp.latLng.lat, wp.latLng.lng]);
+  const pasCoords = passengerRouteControl.getPlan().getWaypoints().map(wp=>[wp.latLng.lat, wp.latLng.lng]);
+
+  // Jeśli mamy OSRM routing, linie mają więcej punktów:
+  const drvLine = driverRouteControl.getRouter()._routes[0].coordinates;
+  const pasLine = passengerRouteControl.getRouter()._routes[0].coordinates;
+
+  // Szukamy pierwszego punktu pasażera na trasie kierowcy
+  let entryIdx=-1;
+  for(let i=0;i<pasLine.length;i++){
+    for(let j=0;j<drvLine.length;j++){
+      if(distanceMeters(pasLine[i], drvLine[j])<=TOLERANCE_METERS){
+        entryIdx=j;
+        break;
+      }
+    }
+    if(entryIdx!==-1) break;
+  }
+
+  if(entryIdx===-1) return; // brak wspólnego punktu
+
+  // Szukamy ostatniego punktu wspólnego (od końca trasy kierowcy)
+  let lastIdx=-1;
+  for(let i=drvLine.length-1;i>=0;i--){
+    for(let j=0;j<pasLine.length;j++){
+      if(distanceMeters(drvLine[i], pasLine[j])<=TOLERANCE_METERS){
+        lastIdx=i;
+        break;
+      }
+    }
+    if(lastIdx!==-1) break;
+  }
+
+  if(lastIdx<=entryIdx) return; // mniej niż 2 punkty wspólne
+
+  const commonCoords = drvLine.slice(entryIdx,lastIdx+1);
+  commonPolyline = L.polyline(commonCoords,{color:'orange',weight:7}).addTo(map);
+}
+
+// ===================== Funkcja dystansu w metrach =====================
+function distanceMeters(a,b){
+  const R=6371000;
+  const dLat=(b.lat-a.lat)*Math.PI/180;
+  const dLng=(b.lng-a.lng)*Math.PI/180;
+  const lat1=a.lat*Math.PI/180;
+  const lat2=b.lat*Math.PI/180;
+  const x=dLng*Math.cos((lat1+lat2)/2);
+  const y=dLat;
+  return Math.sqrt(x*x+y*y)*R;
+}
+
+// ===================== Zapis lokalizacji docelowej pasażera =====================
+document.getElementById("saveDestinationBtn").addEventListener("click",()=>{
+  const latSuffix=document.getElementById("destLat").value.trim();
+  const lngSuffix=document.getElementById("destLng").value.trim();
+  if(latSuffix.length===3 && lngSuffix.length===3){
+    const lat=52.0+parseInt(latSuffix)/10000;
+    const lng=19.9+parseInt(lngSuffix)/10000;
+    db.ref("session/passenger/destination").set({latitude:lat,longitude:lng});
+  } else { alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!"); }
+});
+
+// ===================== Obsługa przycisków =====================
+document.getElementById("driverBtn").addEventListener("click",()=>assignRole("driver"));
+document.getElementById("passengerBtn").addEventListener("click",()=>assignRole("passenger"));
+
 </script>
-</body>
-</html>
 </body>
 </html>
