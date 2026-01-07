@@ -12,7 +12,7 @@
     </style>
 </head>
 <body>
-    <h1>Crossway 2.3 – trasy po drogach</h1>
+    <h1>Crossway 2.4 – trasy po drogach</h1>
     <p>Wybierz swoją rolę i sprawdź geolokalizację</p>
 
     <button id="driverBtn">Driver</button>
@@ -148,7 +148,7 @@
         const latSuffix = document.getElementById("destLat").value.trim();
         const lngSuffix = document.getElementById("destLng").value.trim();
         if(latSuffix.length === 3 && lngSuffix.length === 3){
-            const lat = 52.0 + parseInt(latSuffix)/10000;
+            const lat = 52.1 + parseInt(latSuffix)/10000;
             const lng = 19.9 + parseInt(lngSuffix)/10000;
             db.ref("session/passenger/destination").set({ latitude: lat, longitude: lng });
         } else {
