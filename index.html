@@ -1,3 +1,5 @@
+działa - wszystko i zmiana lokalizacji startu pasażera, klawiatury numeryczne
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -62,11 +64,25 @@ button:active {
 </head>
 
 <body>
-															<h1>Crossway – fundament 1.5</h1>
+<h1>Crossway – fundament 1.6</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
 <p id="role"></p>
+
+<div id="driverDestinationDiv">
+<h3>Cel kierowcy</h3>
+<input id="driverDestLat" placeholder="###" step="1" inputmode="numeric">
+<input id="driverDestLng" placeholder="###" step="1" inputmode="numeric">
+<button id="saveDriverDestinationBtn">Zapisz</button>
+</div>
+
+<div id="passengerDestinationDiv">
+<h3>Cel pasażera</h3>
+<input id="destLat" placeholder="###" step="1" inputmode="numeric">
+<input id="destLng" placeholder="###" step="1" inputmode="numeric">
+<button id="saveDestinationBtn">Zapisz</button>
+</div>
 
 <div id="passengerStartDiv" style="margin-top:15px; display:none;">
   <h3>Start pasażera (zmiana dla testów)</h3>
@@ -74,14 +90,6 @@ button:active {
   <input type="number" id="startLng" placeholder="###" step="1" inputmode="numeric">
   <button id="saveStartBtn">Zapisz start</button>
   <p style="font-size:14px; color:gray;">Wpisz dokładnie 3 cyfry: 52.1### / 19.9###</p>
-</div>
-
-
-<div id="passengerDestinationDiv">
-<h3>Cel pasażera</h3>
-<input id="destLat" placeholder="###">
-<input id="destLng" placeholder="###">
-<button id="saveDestinationBtn">Zapisz</button>
 </div>
 
 <div id="map"></div>
@@ -225,7 +233,7 @@ function assign(role) {
   });
   if(role==="driver") driverDestinationDiv.style.display="block";
   if(role==="passenger") passengerDestinationDiv.style.display="block";
-  if(role==="passenger") passengerStartDiv.style.display="block";
+if(role==="passenger") passengerStartDiv.style.display="block";
 
 }
 
@@ -277,6 +285,7 @@ saveDestinationBtn.onclick = ()=>{
     longitude: 19.9 + destLng.value/10000
   });
 };
+
 // ===================== ZMIANA STARTU PASAŻERA =====================
 saveStartBtn.addEventListener("click", () => {
   const latSuffix = startLat.value.trim();
@@ -293,6 +302,7 @@ saveStartBtn.addEventListener("click", () => {
     alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
   }
 });
+
 </script>
 </body>
 </html>
