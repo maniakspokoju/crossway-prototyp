@@ -1,5 +1,3 @@
-działa - wszystko i zmiana lokalizacji startu pasażera, klawiatury numeryczne
-
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -64,7 +62,7 @@ button:active {
 </head>
 
 <body>
-<h1>Crossway – fundament 1.6</h1>
+																	<h1>Crossway – fundament 1.7</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -178,11 +176,13 @@ async function update() {
   const dPath = await route(
     [ds.currentLocation.latitude, ds.currentLocation.longitude],
     [ds.destination.latitude, ds.destination.longitude]
+    "driving"
   );
 
   const pPath = await route(
     [ps.currentLocation.latitude, ps.currentLocation.longitude],
     [ps.destination.latitude, ps.destination.longitude]
+    "walking"
   );
 
   driverLine.setLatLngs(dPath);
