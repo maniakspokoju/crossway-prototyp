@@ -62,11 +62,13 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 1.6</h1>
+																<h1>Crossway – fundament 2.0</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
 <p id="role"></p>
+<button id="modeBtn">Tryb A</button>
+
 
 <div id="driverDestinationDiv">
 <h3>Cel kierowcy</h3>
@@ -97,6 +99,7 @@ button:active {
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
+
 /* ================= FIREBASE ================= */
 firebase.initializeApp({
   apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
@@ -104,6 +107,8 @@ firebase.initializeApp({
 });
 const db = firebase.database();
 db.ref("session").remove();
+
+let currentMode = "A"; // A = przecięcia, B = optymalny dystans
 
 /* ================= MAP ================= */
 const map = L.map("map").setView([52.1, 19.9], 12);
@@ -300,6 +305,15 @@ saveStartBtn.addEventListener("click", () => {
     alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
   }
 });
+
+const modeBtn = document.getElementById("modeBtn");
+
+modeBtn.onclick = () => {
+  currentMode = currentMode === "A" ? "B" : "A";
+  modeBtn.innerText = "Tryb " + currentMode;
+  console.log("Aktualny tryb:", currentMode);
+};
+
 
 </script>
 </body>
