@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 2.2</h1>
+																<h1>Crossway – fundament 2.3</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -241,20 +241,9 @@ if (currentMode === "B") {
   endIdx = findBestExitIndex(dPath, passengerDest, startIdx);
 }
 
+// (na razie NIE rysujemy)
+// overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
 
-  const intersections = [];
-  dPath.forEach((dp,i)=>{
-    pPath.forEach(pp=>{
-      if(distanceMeters(dp,pp) <= TOLERANCE_METERS) intersections.push(i);
-    });
-  });
-
-  const unique = [...new Set(intersections)].filter(i=>i>=startIdx);
-  if(unique.length < 2) return;
-
-  const endIdx = Math.max(...unique);
-//  overlapLine.setLatLngs(dPath.slice(startIdx, endIdx+1));
-}
 
 db.ref("session").on("value", () => {
   update();
