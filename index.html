@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 2.1</h1>
+																<h1>Crossway – fundament 2.2</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -163,6 +163,22 @@ function findClosestIndex(point, path) {
   return min <= TOLERANCE_METERS ? idx : -1;
 }
 
+function findBestExitIndex(driverPath, passengerDestination, startIdx) {
+  let bestIdx = startIdx;
+  let bestDistance = Infinity;
+
+  for (let i = startIdx; i < driverPath.length; i++) {
+    const d = distanceMeters(driverPath[i], passengerDestination);
+    if (d < bestDistance) {
+      bestDistance = d;
+      bestIdx = i;
+    }
+  }
+
+  return bestIdx;
+}
+
+
 /* ================= OSRM ================= */
 async function route(a, b) {
   const url = `https://router.project-osrm.org/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`;
@@ -200,9 +216,31 @@ driverEndMarker.setLatLng(dPath[dPath.length - 1]);
 passengerEndMarker.setLatLng(pPath[pPath.length - 1]);
 
 
-  const startPassenger = [ps.currentLocation.latitude, ps.currentLocation.longitude];
-  const startIdx = findClosestIndex(startPassenger, dPath);
-  if(startIdx === -1) return;
+const startPassenger = [ps.currentLocation.latitude, ps.currentLocation.longitude];
+const startIdx = findClosestIndex(startPassenger, dPath);
+if (startIdx === -1) return;
+
+let endIdx = -1;
+
+if (currentMode === "A") {
+  const intersections = [];
+  dPath.forEach((dp, i) => {
+    pPath.forEach(pp => {
+      if (distanceMeters(dp, pp) <= TOLERANCE_METERS) intersections.push(i);
+    });
+  });
+
+  const unique = [...new Set(intersections)].filter(i => i >= startIdx);
+  if (unique.length < 2) return;
+
+  endIdx = Math.max(...unique);
+}
+
+if (currentMode === "B") {
+  const passengerDest = [ps.destination.latitude, ps.destination.longitude];
+  endIdx = findBestExitIndex(dPath, passengerDest, startIdx);
+}
+
 
   const intersections = [];
   dPath.forEach((dp,i)=>{
@@ -215,7 +253,7 @@ passengerEndMarker.setLatLng(pPath[pPath.length - 1]);
   if(unique.length < 2) return;
 
   const endIdx = Math.max(...unique);
-  overlapLine.setLatLngs(dPath.slice(startIdx, endIdx+1));
+//  overlapLine.setLatLngs(dPath.slice(startIdx, endIdx+1));
 }
 
 db.ref("session").on("value", () => {
