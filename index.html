@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 2.7</h1>
+																<h1>Crossway – fundament 2.8</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -269,6 +269,8 @@ if (
   overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
 } else {
   overlapLine.setLatLngs([]);
+}
+
 }
 
 db.ref("session").on("value", () => {
