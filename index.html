@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 2.6</h1>
+																<h1>Crossway – fundament 2.7</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -126,18 +126,6 @@ if (modeToggleBtn) {
     update(); // przeliczamy trasy po zmianie trybu
   });
 }
-
-const modeToggleBtn = document.getElementById("modeToggleBtn");
-
-if (modeToggleBtn) {
-  modeToggleBtn.addEventListener("click", () => {
-    currentMode = currentMode === "A" ? "B" : "A";
-    modeToggleBtn.innerText = "Tryb: " + currentMode;
-
-    update();
-  });
-}
-
 
 /* ================= MAP ================= */
 const map = L.map("map").setView([52.1, 19.9], 12);
