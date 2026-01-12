@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 2.9</h1>
+																<h1>Crossway – fundament 3.0</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -93,7 +93,11 @@ button:active {
   <input type="number" id="startLat" placeholder="###" step="1" inputmode="numeric">
   <input type="number" id="startLng" placeholder="###" step="1" inputmode="numeric">
   <button id="saveStartBtn">Zapisz start</button>
-  <p style="font-size:14px; color:gray;">Wpisz dokładnie 3 cyfry: 52.1### / 19.9###</p>
+  </div>
+
+<div id="savedLocations" style="margin-top:10px; font-weight:bold;">
+  <p id="driverSavedInfo" style="color:#2f6fff;"></p>
+  <p id="passengerSavedInfo" style="color:#2fbf6f;"></p>
 </div>
 
 <div id="map"></div>
@@ -357,19 +361,26 @@ function updateRoleAvailability() {
 
 
 /* ================= DEST ================= */
-saveDriverDestinationBtn.onclick = ()=>{
-  db.ref("session/driver/destination").set({
-    latitude: 52.1 + driverDestLat.value/10000,
-    longitude: 19.9 + driverDestLng.value/10000
-  });
+saveDriverDestinationBtn.onclick = () => {
+  const lat = 52.1 + parseInt(driverDestLat.value)/10000;
+  const lng = 19.9 + parseInt(driverDestLng.value)/10000;
+
+  db.ref("session/driver/destination").set({ latitude: lat, longitude: lng })
+    .then(() => {
+      driverSavedInfo.innerText = `Cel kierowcy: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    });
 };
 
-saveDestinationBtn.onclick = ()=>{
-  db.ref("session/passenger/destination").set({
-    latitude: 52.1 + destLat.value/10000,
-    longitude: 19.9 + destLng.value/10000
-  });
+saveDestinationBtn.onclick = () => {
+  const lat = 52.1 + parseInt(destLat.value)/10000;
+  const lng = 19.9 + parseInt(destLng.value)/10000;
+
+  db.ref("session/passenger/destination").set({ latitude: lat, longitude: lng })
+    .then(() => {
+      passengerSavedInfo.innerText = `Cel pasażera: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    });
 };
+
 
 // ===================== ZMIANA STARTU PASAŻERA =====================
 saveStartBtn.addEventListener("click", () => {
