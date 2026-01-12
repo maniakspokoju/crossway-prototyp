@@ -62,13 +62,16 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 2.5</h1>
+																<h1>Crossway – fundament 2.6</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
 <p id="role"></p>
 <button id="modeBtn" style="display:none;">Tryb A</button>
 
+<button id="acceptBtn" style="display:none; background:#ff5722; color:white;">
+  Akceptuj trasę
+</button>
 
 
 <div id="driverDestinationDiv">
@@ -110,6 +113,8 @@ const db = firebase.database();
 db.ref("session").remove();
 
 let currentMode = "A"; // A = przecięcia, B = optymalny dystans
+let accepted = false;
+
 let currentRole = null; // "driver" | "passenger"
 
 
@@ -189,6 +194,11 @@ async function route(a, b) {
   return r.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
 }
 
+db.ref("session/accepted").on("value", snap => {
+  accepted = snap.val() === true;
+});
+
+
 /* ================= MAIN ================= */
 async function update() {
   overlapLine.setLatLngs([]);
@@ -207,8 +217,14 @@ async function update() {
     [ps.destination.latitude, ps.destination.longitude]
   );
 
-  driverLine.setLatLngs(dPath);
+driverLine.setLatLngs(dPath);
+
+// kierowca widzi więcej dopiero po akceptacji
+if (accepted || currentRole === "passenger") {
   passengerLine.setLatLngs(pPath);
+} else {
+  passengerLine.setLatLngs([]);
+}
 
 /* ===== STARTY ===== */
 driverStartMarker.setLatLng(dPath[0]);
@@ -245,9 +261,12 @@ if (currentMode === "B") {
 }
 
 // ===== RYSOWANIE TRASY TRZECIEJ =====
-if (startIdx !== -1 && endIdx !== -1) {
+if ((accepted || currentRole === "passenger") && startIdx !== -1 && endIdx !== -1) {
     overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
 } else {
+    overlapLine.setLatLngs([]);
+}
+ else {
     overlapLine.setLatLngs([]); // jeśli warunki nie spełnione, nic nie rysuj
 }
 
@@ -280,6 +299,12 @@ function assign(role) {
   if (role === "driver") driverDestinationDiv.style.display = "block";
   if (role === "passenger") passengerDestinationDiv.style.display = "block";
   if (role === "passenger") passengerStartDiv.style.display = "block";
+
+if (role === "passenger") {
+  modeBtn.style.display = "inline-block";
+  acceptBtn.style.display = "inline-block";
+}
+
 }
 
 
@@ -356,6 +381,12 @@ modeBtn.onclick = () => {
   modeBtn.innerText = "Tryb " + currentMode;
   console.log("Aktualny tryb:", currentMode);
   update(); // 🔴 TO BYŁ BRAKUJĄCY ELEMENT
+};
+
+const acceptBtn = document.getElementById("acceptBtn");
+
+acceptBtn.onclick = () => {
+  db.ref("session/accepted").set(true);
 };
 
 
