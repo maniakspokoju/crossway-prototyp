@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 2.5</h1>
+																<h1>Crossway – fundament 2.6</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -92,6 +92,12 @@ button:active {
   <p style="font-size:14px; color:gray;">Wpisz dokładnie 3 cyfry: 52.1### / 19.9###</p>
 </div>
 
+<!-- PANEL PASAŻERA -->
+<div id="passengerPanel" style="display:none; position:absolute; top:10px; left:10px; z-index:1000;">
+  <button id="modeToggleBtn">Tryb: A</button>
+</div>
+
+
 <div id="map"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -109,6 +115,29 @@ const db = firebase.database();
 db.ref("session").remove();
 
 let currentMode = "A"; // A = przecięcia, B = optymalny dystans
+
+const modeToggleBtn = document.getElementById("modeToggleBtn");
+
+if (modeToggleBtn) {
+  modeToggleBtn.addEventListener("click", () => {
+    currentMode = currentMode === "A" ? "B" : "A";
+    modeToggleBtn.innerText = "Tryb: " + currentMode;
+
+    update(); // przeliczamy trasy po zmianie trybu
+  });
+}
+
+const modeToggleBtn = document.getElementById("modeToggleBtn");
+
+if (modeToggleBtn) {
+  modeToggleBtn.addEventListener("click", () => {
+    currentMode = currentMode === "A" ? "B" : "A";
+    modeToggleBtn.innerText = "Tryb: " + currentMode;
+
+    update();
+  });
+}
+
 
 /* ================= MAP ================= */
 const map = L.map("map").setView([52.1, 19.9], 12);
