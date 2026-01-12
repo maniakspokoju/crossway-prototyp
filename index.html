@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 2.6</h1>
+																<h1>Crossway – fundament 2.7</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -261,15 +261,14 @@ if (currentMode === "B") {
 }
 
 // ===== RYSOWANIE TRASY TRZECIEJ =====
-if ((accepted || currentRole === "passenger") && startIdx !== -1 && endIdx !== -1) {
-    overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
+if (
+  (accepted || currentRole === "passenger") &&
+  startIdx !== -1 &&
+  endIdx !== -1
+) {
+  overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
 } else {
-    overlapLine.setLatLngs([]);
-}
- else {
-    overlapLine.setLatLngs([]); // jeśli warunki nie spełnione, nic nie rysuj
-}
-
+  overlapLine.setLatLngs([]);
 }
 
 db.ref("session").on("value", () => {
