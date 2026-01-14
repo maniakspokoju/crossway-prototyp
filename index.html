@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.3</h1>
+																<h1>Crossway – fundament 4.0</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -76,29 +76,23 @@ button:active {
 
 <div id="driverDestinationDiv">
 <h3>Cel kierowcy</h3>
-
-<!-- <input id="driverDestLat" placeholder="###" step="1" inputmode="numeric"> -->		tu są zakomentowane pola do wpisywania lokalizacji
-<!-- <input id="driverDestLng" placeholder="###" step="1" inputmode="numeric"> -->		tu są zakomentowane pola do wpisywania lokalizacji
-
-<button id="saveDriverDestinationBtn">Edytuj cel</button>
+<input id="driverDestLat" placeholder="###" step="1" inputmode="numeric">
+<input id="driverDestLng" placeholder="###" step="1" inputmode="numeric">
+<button id="saveDriverDestinationBtn">Zapisz</button>
 </div>
 
 <div id="passengerDestinationDiv">
 <h3>Cel pasażera</h3>
-
-<!-- <input id="destLat" placeholder="###" step="1" inputmode="numeric"> -->			tu są zakomentowane pola do wpisywania lokalizacji
-<!-- <input id="destLng" placeholder="###" step="1" inputmode="numeric"> -->			tu są zakomentowane pola do wpisywania lokalizacji
-
-<button id="saveDestinationBtn">Edytuj cel</button>
+<input id="destLat" placeholder="###" step="1" inputmode="numeric">
+<input id="destLng" placeholder="###" step="1" inputmode="numeric">
+<button id="saveDestinationBtn">Zapisz</button>
 </div>
 
 <div id="passengerStartDiv" style="margin-top:15px; display:none;">
   <h3>Start pasażera (zmiana dla testów)</h3>
-
-<!-- <input type="number" id="startLat" placeholder="###" step="1" inputmode="numeric"> -->		tu są zakomentowane pola do wpisywania lokalizacji
-<!-- <input type="number" id="startLng" placeholder="###" step="1" inputmode="numeric"> -->		tu są zakomentowane pola do wpisywania lokalizacji
-
-  <button id="saveStartBtn">Edytuj start</button>
+  <input type="number" id="startLat" placeholder="###" step="1" inputmode="numeric">
+  <input type="number" id="startLng" placeholder="###" step="1" inputmode="numeric">
+  <button id="saveStartBtn">Zapisz start</button>
   </div>
 
 <div id="savedLocations" style="margin-top:10px; font-weight:bold;">
@@ -126,14 +120,6 @@ let currentMode = "A"; // A = przecięcia, B = optymalny dystans
 let accepted = false;
 
 let currentRole = null; // "driver" | "passenger"
-
-// STANY EDYCJI
-let editingDriverDestination = false;
-let editingPassengerDestination = false;
-let editingPassengerStart = false;
-
-// Zmienna przechowująca wybrany punkt z mapy
-let selectedPoint = null;
 
 
 /* ================= MAP ================= */
@@ -189,21 +175,6 @@ function findClosestIndex(point, path) {
   return min <= TOLERANCE_METERS ? idx : -1;
 }
 
-// Obsługa kliknięcia na mapie
-map.on('click', function(e) {
-  // Jeśli żaden tryb edycji nie jest aktywny, nic nie rób
-  if (!editingDriverDestination && !editingPassengerDestination && !editingPassengerStart) return;
-
-  // Zapisujemy kliknięty punkt
-  selectedPoint = [e.latlng.lat, e.latlng.lng];
-
-  // Podgląd znacznika na mapie
-  if (editingDriverDestination) driverEndMarker.setLatLng(selectedPoint);
-  if (editingPassengerDestination) passengerEndMarker.setLatLng(selectedPoint);
-  if (editingPassengerStart) passengerStartMarker.setLatLng(selectedPoint);
-});
-
-
 function findBestExitIndex(driverPath, passengerDestination, startIdx) {
   let bestIdx = startIdx;
   let bestDistance = Infinity;
@@ -230,28 +201,6 @@ async function route(a, b) {
 db.ref("session/accepted").on("value", snap => {
   accepted = snap.val() === true;
   if (accepted) lockFormsAfterAccept();
-});
-
-
-db.ref("session/accepted").on("value", snap => {
-  const accepted = snap.val() === true;
-
-  if (accepted) {
-    // Blokujemy wszystkie guziki
-    saveDriverDestinationBtn.disabled = true;
-    saveDestinationBtn.disabled = true;
-    saveStartBtn.disabled = true;
-
-    // Zmieniamy style na szare
-    saveDriverDestinationBtn.style.opacity = "0.4";
-    saveDestinationBtn.style.opacity = "0.4";
-    saveStartBtn.style.opacity = "0.4";
-
-    // Wyłączamy edycję
-    editingDriverDestination = false;
-    editingPassengerDestination = false;
-    editingPassengerStart = false;
-  }
 });
 
 
@@ -449,69 +398,6 @@ saveStartBtn.addEventListener("click", () => {
     alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
   }
 });
-
-// Kierowca – cel
-saveDriverDestinationBtn.onclick = () => {
-  if (!editingDriverDestination) {
-    // Włącz tryb edycji
-    editingDriverDestination = true;
-    saveDriverDestinationBtn.innerText = "Zapisz cel";
-    return;
-  }
-
-  // Tryb zapisu
-  if (selectedPoint) {
-    db.ref("session/driver/destination").set({
-      latitude: selectedPoint[0],
-      longitude: selectedPoint[1]
-    });
-  }
-
-  editingDriverDestination = false;
-  saveDriverDestinationBtn.innerText = "Edytuj cel";
-  selectedPoint = null;
-};
-
-// Pasażer – cel
-saveDestinationBtn.onclick = () => {
-  if (!editingPassengerDestination) {
-    editingPassengerDestination = true;
-    saveDestinationBtn.innerText = "Zapisz cel";
-    return;
-  }
-
-  if (selectedPoint) {
-    db.ref("session/passenger/destination").set({
-      latitude: selectedPoint[0],
-      longitude: selectedPoint[1]
-    });
-  }
-
-  editingPassengerDestination = false;
-  saveDestinationBtn.innerText = "Edytuj cel";
-  selectedPoint = null;
-};
-
-// Pasażer – start
-saveStartBtn.onclick = () => {
-  if (!editingPassengerStart) {
-    editingPassengerStart = true;
-    saveStartBtn.innerText = "Zapisz start";
-    return;
-  }
-
-  if (selectedPoint) {
-    db.ref("session/passenger/currentLocation").set({
-      latitude: selectedPoint[0],
-      longitude: selectedPoint[1]
-    });
-  }
-
-  editingPassengerStart = false;
-  saveStartBtn.innerText = "Edytuj start";
-  selectedPoint = null;
-};
-
 
 const modeBtn = document.getElementById("modeBtn");
 
