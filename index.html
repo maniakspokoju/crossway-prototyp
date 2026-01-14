@@ -1,3 +1,5 @@
+Działa wszystko i tryb B
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -62,16 +64,12 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 4.0</h1>
+																<h1>Crossway – fundament 2.5</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
 <p id="role"></p>
-<button id="modeBtn" style="display:none;">Tryb A</button>
-
-<button id="acceptBtn" style="display:none; background:#ff5722; color:white;">
-  Akceptuj trasę
-</button>
+<button id="modeBtn">Tryb A</button>
 
 
 <div id="driverDestinationDiv">
@@ -93,11 +91,7 @@ button:active {
   <input type="number" id="startLat" placeholder="###" step="1" inputmode="numeric">
   <input type="number" id="startLng" placeholder="###" step="1" inputmode="numeric">
   <button id="saveStartBtn">Zapisz start</button>
-  </div>
-
-<div id="savedLocations" style="margin-top:10px; font-weight:bold;">
-  <p id="driverSavedInfo" style="color:#2f6fff;"></p>
-  <p id="passengerSavedInfo" style="color:#2fbf6f;"></p>
+  <p style="font-size:14px; color:gray;">Wpisz dokładnie 3 cyfry: 52.1### / 19.9###</p>
 </div>
 
 <div id="map"></div>
@@ -117,10 +111,6 @@ const db = firebase.database();
 db.ref("session").remove();
 
 let currentMode = "A"; // A = przecięcia, B = optymalny dystans
-let accepted = false;
-
-let currentRole = null; // "driver" | "passenger"
-
 
 /* ================= MAP ================= */
 const map = L.map("map").setView([52.1, 19.9], 12);
@@ -198,13 +188,6 @@ async function route(a, b) {
   return r.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
 }
 
-db.ref("session/accepted").on("value", snap => {
-  accepted = snap.val() === true;
-  if (accepted) lockFormsAfterAccept();
-});
-
-
-
 /* ================= MAIN ================= */
 async function update() {
   overlapLine.setLatLngs([]);
@@ -223,33 +206,16 @@ async function update() {
     [ps.destination.latitude, ps.destination.longitude]
   );
 
-driverLine.setLatLngs(dPath);
-
-// kierowca widzi więcej dopiero po akceptacji
-if (accepted || currentRole === "passenger") {
+  driverLine.setLatLngs(dPath);
   passengerLine.setLatLngs(pPath);
-} else {
-  passengerLine.setLatLngs([]);
-}
 
 /* ===== STARTY ===== */
 driverStartMarker.setLatLng(dPath[0]);
-
-if (accepted || currentRole === "passenger") {
-  passengerStartMarker.setLatLng(pPath[0]);
-} else {
-  passengerStartMarker.setLatLng([0, 0]);
-}
+passengerStartMarker.setLatLng(pPath[0]);
 
 /* ===== CELE ===== */
 driverEndMarker.setLatLng(dPath[dPath.length - 1]);
-
-if (accepted || currentRole === "passenger") {
-  passengerEndMarker.setLatLng(pPath[pPath.length - 1]);
-} else {
-  passengerEndMarker.setLatLng([0, 0]);
-}
-
+passengerEndMarker.setLatLng(pPath[pPath.length - 1]);
 
 
 const startPassenger = [ps.currentLocation.latitude, ps.currentLocation.longitude];
@@ -278,14 +244,10 @@ if (currentMode === "B") {
 }
 
 // ===== RYSOWANIE TRASY TRZECIEJ =====
-if (
-  (accepted || currentRole === "passenger") &&
-  startIdx !== -1 &&
-  endIdx !== -1
-) {
-  overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
+if (startIdx !== -1 && endIdx !== -1) {
+    overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
 } else {
-  overlapLine.setLatLngs([]);
+    overlapLine.setLatLngs([]); // jeśli warunki nie spełnione, nic nie rysuj
 }
 
 }
@@ -298,33 +260,19 @@ db.ref("session").on("value", () => {
 
 /* ================= ROLE ================= */
 function assign(role) {
-  currentRole = role;
-
   document.getElementById("map").style.display = "block";
-
-  db.ref("session/" + role).set({ role });
-
-  navigator.geolocation.getCurrentPosition(p => {
+  db.ref("session/"+role).set({ role });
+  navigator.geolocation.getCurrentPosition(p=>{
     db.ref(`session/${role}/currentLocation`).set({
       latitude: p.coords.latitude,
       longitude: p.coords.longitude
     });
   });
-
-  // UI
-  modeBtn.style.display = role === "passenger" ? "inline-block" : "none";
-
-  if (role === "driver") driverDestinationDiv.style.display = "block";
-  if (role === "passenger") passengerDestinationDiv.style.display = "block";
-  if (role === "passenger") passengerStartDiv.style.display = "block";
-
-if (role === "passenger") {
-  modeBtn.style.display = "inline-block";
-  acceptBtn.style.display = "inline-block";
-}
+  if(role==="driver") driverDestinationDiv.style.display="block";
+  if(role==="passenger") passengerDestinationDiv.style.display="block";
+if(role==="passenger") passengerStartDiv.style.display="block";
 
 }
-
 
 driverBtn.onclick = ()=>assign("driver");
 passengerBtn.onclick = ()=>assign("passenger");
@@ -361,26 +309,19 @@ function updateRoleAvailability() {
 
 
 /* ================= DEST ================= */
-saveDriverDestinationBtn.onclick = () => {
-  const lat = 52.1 + parseInt(driverDestLat.value)/10000;
-  const lng = 19.9 + parseInt(driverDestLng.value)/10000;
-
-  db.ref("session/driver/destination").set({ latitude: lat, longitude: lng })
-    .then(() => {
-      driverSavedInfo.innerText = `Cel kierowcy: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    });
+saveDriverDestinationBtn.onclick = ()=>{
+  db.ref("session/driver/destination").set({
+    latitude: 52.1 + driverDestLat.value/10000,
+    longitude: 19.9 + driverDestLng.value/10000
+  });
 };
 
-saveDestinationBtn.onclick = () => {
-  const lat = 52.1 + parseInt(destLat.value)/10000;
-  const lng = 19.9 + parseInt(destLng.value)/10000;
-
-  db.ref("session/passenger/destination").set({ latitude: lat, longitude: lng })
-    .then(() => {
-      passengerSavedInfo.innerText = `Cel pasażera: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    });
+saveDestinationBtn.onclick = ()=>{
+  db.ref("session/passenger/destination").set({
+    latitude: 52.1 + destLat.value/10000,
+    longitude: 19.9 + destLng.value/10000
+  });
 };
-
 
 // ===================== ZMIANA STARTU PASAŻERA =====================
 saveStartBtn.addEventListener("click", () => {
@@ -405,32 +346,7 @@ modeBtn.onclick = () => {
   currentMode = currentMode === "A" ? "B" : "A";
   modeBtn.innerText = "Tryb " + currentMode;
   console.log("Aktualny tryb:", currentMode);
-  update(); // 🔴 TO BYŁ BRAKUJĄCY ELEMENT
 };
-
-const acceptBtn = document.getElementById("acceptBtn");
-
-acceptBtn.onclick = () => {
-  db.ref("session/accepted").set(true);
-  lockFormsAfterAccept();
-};
-
-
-function lockFormsAfterAccept() {
-  const inputs = document.querySelectorAll(
-    "#driverDestinationDiv input, #passengerDestinationDiv input, #passengerStartDiv input"
-  );
-  const buttons = document.querySelectorAll(
-    "#driverDestinationDiv button, #passengerDestinationDiv button, #passengerStartDiv button"
-  );
-
-  inputs.forEach(i => i.disabled = true);
-  buttons.forEach(b => {
-    b.disabled = true;
-    b.style.opacity = "0.4";
-  });
-}
-
 
 
 </script>
