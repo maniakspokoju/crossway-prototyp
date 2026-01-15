@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.4</h1>
+																<h1>Crossway – fundament 3.5</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -77,8 +77,8 @@ button:active {
 <div id="driverDestinationDiv">
 <h3>Cel kierowcy</h3>
 
-<!-- <input id="driverDestLat" placeholder="###" step="1" inputmode="numeric"> -->		tu są zakomentowane pola do wpisywania lokalizacji
-<!-- <input id="driverDestLng" placeholder="###" step="1" inputmode="numeric"> -->		tu są zakomentowane pola do wpisywania lokalizacji
+<!-- <input id="driverDestLat" placeholder="###" step="1" inputmode="numeric"> -->		//tu są zakomentowane pola do wpisywania lokalizacji
+<!-- <input id="driverDestLng" placeholder="###" step="1" inputmode="numeric"> -->		//tu są zakomentowane pola do wpisywania lokalizacji
 
 <button id="saveDriverDestinationBtn">Edytuj cel</button>
 </div>
@@ -86,8 +86,8 @@ button:active {
 <div id="passengerDestinationDiv">
 <h3>Cel pasażera</h3>
 
-<!-- <input id="destLat" placeholder="###" step="1" inputmode="numeric"> -->			tu są zakomentowane pola do wpisywania lokalizacji
-<!-- <input id="destLng" placeholder="###" step="1" inputmode="numeric"> -->			tu są zakomentowane pola do wpisywania lokalizacji
+<!-- <input id="destLat" placeholder="###" step="1" inputmode="numeric"> -->			//tu są zakomentowane pola do wpisywania lokalizacji
+<!-- <input id="destLng" placeholder="###" step="1" inputmode="numeric"> -->			//tu są zakomentowane pola do wpisywania lokalizacji
 
 <button id="saveDestinationBtn">Edytuj cel</button>
 </div>
@@ -276,6 +276,10 @@ async function update() {
 
 driverLine.setLatLngs(dPath);
 
+if (dPath.length > 0) {
+  map.fitBounds(dPath, { padding: [40, 40] });
+}
+
 // kierowca widzi więcej dopiero po akceptacji
 if (accepted || currentRole === "passenger") {
   passengerLine.setLatLngs(pPath);
@@ -427,21 +431,21 @@ saveDestinationBtn.onclick = ()=>{
 };
 
 // start pasażera
-saveStartBtn.addEventListener("click", () => {
-  const latSuffix = startLat.value.trim();
-  const lngSuffix = startLng.value.trim();
+//saveStartBtn.addEventListener("click", () => {
+ // const latSuffix = startLat.value.trim();
+ // const lngSuffix = startLng.value.trim();
 
-  if(latSuffix.length === 3 && lngSuffix.length === 3){
-    const lat = 52.1 + parseInt(latSuffix)/10000;
-    const lng = 19.9 + parseInt(lngSuffix)/10000;
+ // if(latSuffix.length === 3 && lngSuffix.length === 3){
+  //  const lat = 52.1 + parseInt(latSuffix)/10000;
+  //  const lng = 19.9 + parseInt(lngSuffix)/10000;
 
-    db.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng })
-      .then(() => console.log("Nowa lokalizacja startowa pasażera zapisana:", lat, lng))
-      .catch(err => console.error(err));
-  } else {
-    alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
-  }
-});
+ //   db.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng })
+ //     .then(() => console.log("Nowa lokalizacja startowa pasażera zapisana:", lat, lng))
+ //     .catch(err => console.error(err));
+//  } else {
+//    alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
+//  }
+//});
 
 
 
