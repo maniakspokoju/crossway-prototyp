@@ -14,7 +14,6 @@ body {
 #map {
     height: 1000px;
     margin-top: 20px;
-    display: none;
 }
 
 /* SEKCJE FORMULARZY */
@@ -62,7 +61,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.8</h1>
+																<h1>Crossway – fundament 3.9</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -233,9 +232,6 @@ db.ref("session/accepted").on("value", snap => {
 });
 
 
-db.ref("session/accepted").on("value", snap => {
-  const accepted = snap.val() === true;
-
   if (accepted) {
     // Blokujemy wszystkie guziki
     saveDriverDestinationBtn.disabled = true;
@@ -353,8 +349,6 @@ db.ref("session").on("value", () => {
 /* ================= ROLE ================= */
 function assign(role) {
   currentRole = role;
-
-  document.getElementById("map").style.display = "block";
 
   db.ref("session/" + role).set({ role });
 
