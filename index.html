@@ -61,7 +61,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.9</h1>
+																<h1>Crossway – fundament 3.0</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -232,23 +232,6 @@ db.ref("session/accepted").on("value", snap => {
 });
 
 
-  if (accepted) {
-    // Blokujemy wszystkie guziki
-    saveDriverDestinationBtn.disabled = true;
-    saveDestinationBtn.disabled = true;
-    saveStartBtn.disabled = true;
-
-    // Zmieniamy style na szare
-    saveDriverDestinationBtn.style.opacity = "0.4";
-    saveDestinationBtn.style.opacity = "0.4";
-    saveStartBtn.style.opacity = "0.4";
-
-    // Wyłączamy edycję
-    editingDriverDestination = false;
-    editingPassengerDestination = false;
-    editingPassengerStart = false;
-  }
-});
 
 
 
@@ -408,20 +391,6 @@ function updateRoleAvailability() {
 }
 
 
-
-saveDriverDestinationBtn.onclick = ()=>{
-  db.ref("session/driver/destination").set({
-    latitude: 52.1 + driverDestLat.value/10000,
-    longitude: 19.9 + driverDestLng.value/10000
-  });
-};
-
-saveDestinationBtn.onclick = ()=>{
-  db.ref("session/passenger/destination").set({
-    latitude: 52.1 + destLat.value/10000,
-    longitude: 19.9 + destLng.value/10000
-  });
-};
 
 // start pasażera
 // saveStartBtn.addEventListener("click", () => {
