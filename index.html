@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.6</h1>
+																<h1>Crossway – fundament 3.7</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -261,7 +261,13 @@ async function update() {
   overlapLine.setLatLngs([]);
 
   const ds = (await db.ref("session/driver").once("value")).val();
-  const ps = (await db.ref("session/passenger").once("value")).val();if (!ds?.currentLocation || !ps?.currentLocation) return;
+  const ps = (await db.ref("session/passenger").once("value")).val();if (
+  !ds?.currentLocation ||
+  !ds?.destination ||
+  !ps?.currentLocation ||
+  !ps?.destination
+) return;
+
 
 console.log("DRIVER:", ds);
 console.log("PASSENGER:", ps);
