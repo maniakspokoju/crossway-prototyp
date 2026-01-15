@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.7</h1>
+																<h1>Crossway – fundament 3.8</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -258,100 +258,90 @@ db.ref("session/accepted").on("value", snap => {
 
 /* ================= MAIN ================= */
 async function update() {
+  // czyścimy linie (bez ruszania mapy)
+  driverLine.setLatLngs([]);
+  passengerLine.setLatLngs([]);
   overlapLine.setLatLngs([]);
 
   const ds = (await db.ref("session/driver").once("value")).val();
-  const ps = (await db.ref("session/passenger").once("value")).val();if (
-  !ds?.currentLocation ||
-  !ds?.destination ||
-  !ps?.currentLocation ||
-  !ps?.destination
-) return;
+  const ps = (await db.ref("session/passenger").once("value")).val();
 
+  let dPath = null;
+  let pPath = null;
 
-console.log("DRIVER:", ds);
-console.log("PASSENGER:", ps);
+  /* ================= TRASA KIEROWCY (ZAWSZE) ================= */
+  if (ds?.currentLocation && ds?.destination) {
+    dPath = await route(
+      [ds.currentLocation.latitude, ds.currentLocation.longitude],
+      [ds.destination.latitude, ds.destination.longitude]
+    );
 
+    driverLine.setLatLngs(dPath);
 
-  const dPath = await route(
-    [ds.currentLocation.latitude, ds.currentLocation.longitude],
-    [ds.destination.latitude, ds.destination.longitude]
-  );
+    if (dPath.length) {
+      driverStartMarker.setLatLng(dPath[0]);
+      driverEndMarker.setLatLng(dPath.at(-1));
+    }
+  }
 
-  const pPath = await route(
-    [ps.currentLocation.latitude, ps.currentLocation.longitude],
-    [ps.destination.latitude, ps.destination.longitude]
-  );
+  /* ================= TRASA PASAŻERA ================= */
+  if (
+    ps?.currentLocation &&
+    ps?.destination &&
+    (accepted || currentRole === "passenger")
+  ) {
+    pPath = await route(
+      [ps.currentLocation.latitude, ps.currentLocation.longitude],
+      [ps.destination.latitude, ps.destination.longitude]
+    );
 
-driverLine.setLatLngs(dPath);
+    passengerLine.setLatLngs(pPath);
 
-if (dPath.length > 0) {
-  map.fitBounds(dPath, { padding: [40, 40] });
-}
+    if (pPath.length) {
+      passengerStartMarker.setLatLng(pPath[0]);
+      passengerEndMarker.setLatLng(pPath.at(-1));
+    }
+  }
 
-// kierowca widzi więcej dopiero po akceptacji
-if (accepted || currentRole === "passenger") {
-  passengerLine.setLatLngs(pPath);
-} else {
-  passengerLine.setLatLngs([]);
-}
+  /* ================= TRASA WSPÓLNA ================= */
+  if (accepted && dPath && pPath) {
+    const startPassenger = [
+      ps.currentLocation.latitude,
+      ps.currentLocation.longitude
+    ];
 
-/* ===== STARTY ===== */
-driverStartMarker.setLatLng(dPath[0]);
+    const startIdx = findClosestIndex(startPassenger, dPath);
+    if (startIdx === -1) return;
 
-if (accepted || currentRole === "passenger") {
-  passengerStartMarker.setLatLng(pPath[0]);
-} else {
-  passengerStartMarker.setLatLng([0, 0]);
-}
+    let endIdx = -1;
 
-/* ===== CELE ===== */
-driverEndMarker.setLatLng(dPath[dPath.length - 1]);
+    if (currentMode === "A") {
+      const hits = [];
 
-if (accepted || currentRole === "passenger") {
-  passengerEndMarker.setLatLng(pPath[pPath.length - 1]);
-} else {
-  passengerEndMarker.setLatLng([0, 0]);
-}
+      dPath.forEach((dp, i) => {
+        pPath.forEach(pp => {
+          if (distanceMeters(dp, pp) <= TOLERANCE_METERS) hits.push(i);
+        });
+      });
 
+      const valid = [...new Set(hits)].filter(i => i >= startIdx);
+      if (valid.length < 2) return;
 
+      endIdx = Math.max(...valid);
+    }
 
-const startPassenger = [ps.currentLocation.latitude, ps.currentLocation.longitude];
-const startIdx = findClosestIndex(startPassenger, dPath);
-if (startIdx === -1) return;
+    if (currentMode === "B") {
+      const passengerDest = [
+        ps.destination.latitude,
+        ps.destination.longitude
+      ];
+      endIdx = findBestExitIndex(dPath, passengerDest, startIdx);
+    }
 
-let endIdx = -1;
-
-if (currentMode === "A") {
-  const intersections = [];
-  dPath.forEach((dp, i) => {
-    pPath.forEach(pp => {
-      if (distanceMeters(dp, pp) <= TOLERANCE_METERS) intersections.push(i);
-    });
-  });
-
-  const unique = [...new Set(intersections)].filter(i => i >= startIdx);
-  if (unique.length < 2) return;
-
-  endIdx = Math.max(...unique);
-}
-
-if (currentMode === "B") {
-  const passengerDest = [ps.destination.latitude, ps.destination.longitude];
-  endIdx = findBestExitIndex(dPath, passengerDest, startIdx);
-}
-
-// ===== RYSOWANIE TRASY TRZECIEJ =====
-if (
-  (accepted || currentRole === "passenger") &&
-  startIdx !== -1 &&
-  endIdx !== -1
-) {
-  overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
-} else {
-  overlapLine.setLatLngs([]);
-}
-
+    if (endIdx !== -1) {
+      overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
+    }
+  }
 }
 
 db.ref("session").on("value", () => {
