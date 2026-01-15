@@ -62,7 +62,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.5</h1>
+																<h1>Crossway – fundament 3.6</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -77,8 +77,8 @@ button:active {
 <div id="driverDestinationDiv">
 <h3>Cel kierowcy</h3>
 
-<!-- <input id="driverDestLat" placeholder="###" step="1" inputmode="numeric"> -->		//tu są zakomentowane pola do wpisywania lokalizacji
-<!-- <input id="driverDestLng" placeholder="###" step="1" inputmode="numeric"> -->		//tu są zakomentowane pola do wpisywania lokalizacji
+<!-- <input id="driverDestLat" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
+<!-- <input id="driverDestLng" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
 
 <button id="saveDriverDestinationBtn">Edytuj cel</button>
 </div>
@@ -86,8 +86,8 @@ button:active {
 <div id="passengerDestinationDiv">
 <h3>Cel pasażera</h3>
 
-<!-- <input id="destLat" placeholder="###" step="1" inputmode="numeric"> -->			//tu są zakomentowane pola do wpisywania lokalizacji
-<!-- <input id="destLng" placeholder="###" step="1" inputmode="numeric"> -->			//tu są zakomentowane pola do wpisywania lokalizacji
+<!-- <input id="destLat" placeholder="###" step="1" inputmode="numeric"> -->			<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
+<!-- <input id="destLng" placeholder="###" step="1" inputmode="numeric"> -->			<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
 
 <button id="saveDestinationBtn">Edytuj cel</button>
 </div>
@@ -95,8 +95,8 @@ button:active {
 <div id="passengerStartDiv" style="margin-top:15px; display:none;">
   <h3>Start pasażera (zmiana dla testów)</h3>
 
-<!-- <input type="number" id="startLat" placeholder="###" step="1" inputmode="numeric"> -->		tu są zakomentowane pola do wpisywania lokalizacji
-<!-- <input type="number" id="startLng" placeholder="###" step="1" inputmode="numeric"> -->		tu są zakomentowane pola do wpisywania lokalizacji
+<!-- <input type="number" id="startLat" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
+<!-- <input type="number" id="startLng" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
 
   <button id="saveStartBtn">Edytuj start</button>
   </div>
@@ -261,8 +261,11 @@ async function update() {
   overlapLine.setLatLngs([]);
 
   const ds = (await db.ref("session/driver").once("value")).val();
-  const ps = (await db.ref("session/passenger").once("value")).val();
-  if(!ds?.currentLocation || !ds?.destination || !ps?.currentLocation || !ps?.destination) return;
+  const ps = (await db.ref("session/passenger").once("value")).val();if (!ds?.currentLocation || !ps?.currentLocation) return;
+
+console.log("DRIVER:", ds);
+console.log("PASSENGER:", ps);
+
 
   const dPath = await route(
     [ds.currentLocation.latitude, ds.currentLocation.longitude],
@@ -431,7 +434,7 @@ saveDestinationBtn.onclick = ()=>{
 };
 
 // start pasażera
-//saveStartBtn.addEventListener("click", () => {
+// saveStartBtn.addEventListener("click", () => {
  // const latSuffix = startLat.value.trim();
  // const lngSuffix = startLng.value.trim();
 
@@ -445,7 +448,7 @@ saveDestinationBtn.onclick = ()=>{
 //  } else {
 //    alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
 //  }
-//});
+// });
 
 
 
