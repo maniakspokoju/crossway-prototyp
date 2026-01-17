@@ -87,7 +87,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.6</h1>
+																<h1>Crossway – fundament 3.7</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -373,21 +373,26 @@ db.ref("session").on("value", () => {
 
 /* ================= ROLE ================= */
 function assign(role) {
-  const firstTimeChoosing = !currentRole; // 🔹 sprawdzamy, czy wybór jest pierwszy raz
+  const firstTimeChoosing = !currentRole; // pierwszy wybór
 
   if (firstTimeChoosing) {
     currentRole = role;
 
-    // Zapis do bazy roli
+    // Zapis roli w Firebase
     db.ref("session/" + role).set({ role });
   }
 
-  // Pobranie i ustawienie aktualnej lokalizacji na mapie – zawsze, nawet przy ponownym wywołaniu
+  // Pobranie aktualnej lokalizacji
   navigator.geolocation.getCurrentPosition(p => {
-    db.ref(`session/${role}/currentLocation`).set({
-      latitude: p.coords.latitude,
-      longitude: p.coords.longitude
-    });
+    const lat = p.coords.latitude;
+    const lng = p.coords.longitude;
+
+    // Zapis w Firebase
+    db.ref(`session/${role}/currentLocation`).set({ latitude: lat, longitude: lng });
+
+    // 🔹 Ustawienie markera startowego od razu na mapie
+    if (role === "driver") driverStartMarker.setLatLng([lat, lng]);
+    if (role === "passenger") passengerStartMarker.setLatLng([lat, lng]);
   });
 
   // UI
@@ -402,9 +407,10 @@ function assign(role) {
     acceptBtn.style.display = "inline-block";
   }
 
-  // 🔹 odświeżamy dostępność guzika, żeby zablokować zmianę roli
+  // Odśwież dostępność guzika
   updateRoleAvailability();
 }
+
 
 
 
