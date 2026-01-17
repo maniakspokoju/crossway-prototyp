@@ -87,7 +87,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.7</h1>
+																<h1>Crossway – fundament 3.8</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -325,45 +325,39 @@ async function update() {
   }
 
   /* ================= TRASA WSPÓLNA ================= */
-  if (dPath && pPath) {
-    const startPassenger = [
-      ps.currentLocation.latitude,
-      ps.currentLocation.longitude
-    ];
+let overlapExists = false; // 🔹 flaga do guzika akceptacji
 
-    const startIdx = findClosestIndex(startPassenger, dPath);
-    if (startIdx === -1) return;
-
+if (dPath && pPath) {
+  const startPassenger = [ps.currentLocation.latitude, ps.currentLocation.longitude];
+  const startIdx = findClosestIndex(startPassenger, dPath);
+  if (startIdx !== -1) {
     let endIdx = -1;
 
     if (currentMode === "A") {
       const hits = [];
-
-      dPath.forEach((dp, i) => {
-        pPath.forEach(pp => {
-          if (distanceMeters(dp, pp) <= TOLERANCE_METERS) hits.push(i);
-        });
-      });
-
+      dPath.forEach((dp, i) => pPath.forEach(pp => {
+        if (distanceMeters(dp, pp) <= TOLERANCE_METERS) hits.push(i);
+      }));
       const valid = [...new Set(hits)].filter(i => i >= startIdx);
-      if (valid.length < 2) return;
-
-      endIdx = Math.max(...valid);
+      if (valid.length >= 2) endIdx = Math.max(...valid);
     }
 
     if (currentMode === "B") {
-      const passengerDest = [
-        ps.destination.latitude,
-        ps.destination.longitude
-      ];
+      const passengerDest = [ps.destination.latitude, ps.destination.longitude];
       endIdx = findBestExitIndex(dPath, passengerDest, startIdx);
     }
 
     if (endIdx !== -1) {
       overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
+      overlapExists = true; // 🔹 jest wspólna trasa
     }
   }
 }
+
+// 🔹 Aktywacja/dezaktywacja przycisku Akceptuj trasę
+acceptBtn.disabled = !overlapExists;
+acceptBtn.style.opacity = overlapExists ? "1" : "0.4";
+
 
 db.ref("session").on("value", () => {
   update();
