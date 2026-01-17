@@ -87,7 +87,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.5</h1>
+																<h1>Crossway – fundament 3.6</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -373,12 +373,16 @@ db.ref("session").on("value", () => {
 
 /* ================= ROLE ================= */
 function assign(role) {
-  if (currentRole) return; // 🔹 jeśli już wybrano rolę, nie pozwalamy na zmianę
+  const firstTimeChoosing = !currentRole; // 🔹 sprawdzamy, czy wybór jest pierwszy raz
 
-  currentRole = role;
+  if (firstTimeChoosing) {
+    currentRole = role;
 
-  db.ref("session/" + role).set({ role });
+    // Zapis do bazy roli
+    db.ref("session/" + role).set({ role });
+  }
 
+  // Pobranie i ustawienie aktualnej lokalizacji na mapie – zawsze, nawet przy ponownym wywołaniu
   navigator.geolocation.getCurrentPosition(p => {
     db.ref(`session/${role}/currentLocation`).set({
       latitude: p.coords.latitude,
@@ -398,8 +402,10 @@ function assign(role) {
     acceptBtn.style.display = "inline-block";
   }
 
-  updateRoleAvailability(); // 🔹 od razu aktualizujemy dostępność guzika
+  // 🔹 odświeżamy dostępność guzika, żeby zablokować zmianę roli
+  updateRoleAvailability();
 }
+
 
 
 
