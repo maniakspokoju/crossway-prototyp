@@ -87,7 +87,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.1</h1>
+																<h1>Crossway – fundament 3.2</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -262,6 +262,25 @@ db.ref("session/accepted").on("value", snap => {
 
 
 
+function setStartFromGeolocation(role) {
+  if (!navigator.geolocation) return;
+
+  navigator.geolocation.getCurrentPosition(pos => {
+    const latlng = [pos.coords.latitude, pos.coords.longitude];
+
+    if (role === "driver") {
+      // zastępujemy/aktualizujemy marker kierowcy
+      if (driverStartMarker) driverStartMarker.setLatLng(latlng);
+      else driverStartMarker = L.marker(latlng, { icon: iconK }).addTo(map);
+    }
+
+    if (role === "passenger") {
+      // zastępujemy/aktualizujemy marker pasażera
+      if (passengerStartMarker) passengerStartMarker.setLatLng(latlng);
+      else passengerStartMarker = L.marker(latlng, { icon: iconP }).addTo(map);
+    }
+  });
+}
 
 
 /* ================= MAIN ================= */
@@ -370,6 +389,11 @@ function assign(role) {
       longitude: p.coords.longitude
     });
   });
+
+    // 🔴 NOWOŚĆ: pokaż marker startowy
+    setStartFromGeolocation(role);
+  });
+
 
   // UI
   modeBtn.style.display = role === "passenger" ? "inline-block" : "none";
