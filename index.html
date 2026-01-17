@@ -59,6 +59,7 @@ button {
 button:active {
     transform: scale(0.97);
 }
+
 /* ===== MOBILE LAYOUT ===== */
 html, body {
   height: 100%;
@@ -69,8 +70,6 @@ html, body {
   display: flex;
   width: 100%;
 }
-<div id="panelArea"></div>
-
 
 #roleBar button {
   width: 50%;
@@ -83,32 +82,12 @@ html, body {
 #map {
   height: calc(100vh - 80px);
 }
-/* ===== PANELS OVER MAP ===== */
-.panel {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: white;
-  z-index: 1000;
-  padding: 15px;
-  box-shadow: 0 -4px 12px rgba(0,0,0,0.2);
-  display: none;
-}
-
-/* większe guziki w panelach */
-.panel button {
-  width: 100%;
-  font-size: 24px;
-  margin-top: 10px;
-}
-
 
 </style>
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.2</h1>
+																<h1>Crossway – fundament 3.1</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -123,8 +102,7 @@ html, body {
 </button>
 
 
-<div id="driverDestinationDiv" class="panel">
-
+<div id="driverDestinationDiv">
 <h3>Cel kierowcy</h3>
 
 <!-- <input id="driverDestLat" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
@@ -133,8 +111,7 @@ html, body {
 <button id="saveDriverDestinationBtn">Edytuj cel</button>
 </div>
 
-<div id="passengerDestinationDiv" class="panel">
-
+<div id="passengerDestinationDiv">
 <h3>Cel pasażera</h3>
 
 <!-- <input id="destLat" placeholder="###" step="1" inputmode="numeric"> -->			<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
@@ -143,7 +120,7 @@ html, body {
 <button id="saveDestinationBtn">Edytuj cel</button>
 </div>
 
-<div id="passengerStartDiv" class="panel" style="margin-top:15px; display:none;">
+<div id="passengerStartDiv" style="margin-top:15px; display:none;">
   <h3>Start pasażera (zmiana dla testów)</h3>
 
 <!-- <input type="number" id="startLat" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
@@ -394,25 +371,17 @@ function assign(role) {
     });
   });
 
-// reset UI
-driverDestinationDiv.style.display = "none";
-passengerDestinationDiv.style.display = "none";
-passengerStartDiv.style.display = "none";
-modeBtn.style.display = "none";
-acceptBtn.style.display = "none";
+  // UI
+  modeBtn.style.display = role === "passenger" ? "inline-block" : "none";
 
-// role-based UI
-if (role === "driver") {
-  driverDestinationDiv.style.display = "block";
-}
+  if (role === "driver") driverDestinationDiv.style.display = "block";
+  if (role === "passenger") passengerDestinationDiv.style.display = "block";
+  if (role === "passenger") passengerStartDiv.style.display = "block";
 
 if (role === "passenger") {
-  passengerDestinationDiv.style.display = "block";
-  passengerStartDiv.style.display = "block";
   modeBtn.style.display = "inline-block";
   acceptBtn.style.display = "inline-block";
 }
-
 
 }
 
