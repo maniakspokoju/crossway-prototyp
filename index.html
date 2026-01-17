@@ -87,7 +87,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.2</h1>
+																<h1>Crossway – fundament 3.5</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -373,20 +373,18 @@ db.ref("session").on("value", () => {
 
 /* ================= ROLE ================= */
 function assign(role) {
+  if (currentRole) return; // 🔹 jeśli już wybrano rolę, nie pozwalamy na zmianę
+
   currentRole = role;
 
   db.ref("session/" + role).set({ role });
 
-navigator.geolocation.getCurrentPosition(p => {
-  const lat = p.coords.latitude;
-  const lng = p.coords.longitude;
-
-  db.ref(`session/${role}/currentLocation`).set({ latitude: lat, longitude: lng });
-
-  // 🔹 NOWOŚĆ – pokaż marker startowy od razu po wyborze roli
-  showStartMarker(role, lat, lng);
-});
-
+  navigator.geolocation.getCurrentPosition(p => {
+    db.ref(`session/${role}/currentLocation`).set({
+      latitude: p.coords.latitude,
+      longitude: p.coords.longitude
+    });
+  });
 
   // UI
   modeBtn.style.display = role === "passenger" ? "inline-block" : "none";
@@ -395,12 +393,14 @@ navigator.geolocation.getCurrentPosition(p => {
   if (role === "passenger") passengerDestinationDiv.style.display = "block";
   if (role === "passenger") passengerStartDiv.style.display = "block";
 
-if (role === "passenger") {
-  modeBtn.style.display = "inline-block";
-  acceptBtn.style.display = "inline-block";
+  if (role === "passenger") {
+    modeBtn.style.display = "inline-block";
+    acceptBtn.style.display = "inline-block";
+  }
+
+  updateRoleAvailability(); // 🔹 od razu aktualizujemy dostępność guzika
 }
 
-}
 
 
 driverBtn.onclick = ()=>assign("driver");
@@ -413,7 +413,7 @@ function updateRoleAvailability() {
     const data = snapshot.val() || {};
 
     // DRIVER
-    if (data.driver && data.driver.role === "driver") {
+    if ((data.driver && data.driver.role === "driver") || currentRole) {
       driverBtn.disabled = true;
       driverBtn.style.opacity = "0.4";
       driverBtn.innerText = "Driver zajęty";
@@ -424,7 +424,7 @@ function updateRoleAvailability() {
     }
 
     // PASSENGER
-    if (data.passenger && data.passenger.role === "passenger") {
+    if ((data.passenger && data.passenger.role === "passenger") || currentRole) {
       passengerBtn.disabled = true;
       passengerBtn.style.opacity = "0.4";
       passengerBtn.innerText = "Passenger zajęty";
@@ -435,6 +435,7 @@ function updateRoleAvailability() {
     }
   });
 }
+
 
 
 
