@@ -87,7 +87,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.0</h1>
+																<h1>Crossway – fundament 3.2</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -524,12 +524,24 @@ saveStartBtn.onclick = () => {
 
 const modeBtn = document.getElementById("modeBtn");
 
+// Zmiana trybu – zapis do Firebase
 modeBtn.onclick = () => {
-  currentMode = currentMode === "A" ? "B" : "A";
-  modeBtn.innerText = "Tryb " + currentMode;
-  console.log("Aktualny tryb:", currentMode);
-  update(); // 🔴 TO BYŁ BRAKUJĄCY ELEMENT
+  const newMode = currentMode === "A" ? "B" : "A";
+  db.ref("session/mode").set(newMode);  // 🔹 zapis trybu globalnie
 };
+
+// Listener Firebase – reaguje na zmiany trybu
+db.ref("session/mode").on("value", snap => {
+  const mode = snap.val();
+  if (mode) {
+    currentMode = mode;
+    modeBtn.innerText = "Tryb " + currentMode;
+    update(); // 🔹 odśwież mapę w nowym trybie
+  }
+});
+
+
+
 
 const acceptBtn = document.getElementById("acceptBtn");
 
