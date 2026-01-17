@@ -61,7 +61,7 @@ button:active {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.0</h1>
+																<h1>Crossway – fundament 3.1</h1>
 
 <button id="driverBtn">Driver</button>
 <button id="passengerBtn">Passenger</button>
@@ -283,7 +283,7 @@ async function update() {
   }
 
   /* ================= TRASA WSPÓLNA ================= */
-  if (accepted && dPath && pPath) {
+  if (dPath && pPath) {
     const startPassenger = [
       ps.currentLocation.latitude,
       ps.currentLocation.longitude
