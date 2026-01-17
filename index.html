@@ -87,7 +87,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.2</h1>
+																<h1>Crossway – fundament 3.3</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -269,18 +269,15 @@ function setStartFromGeolocation(role) {
     const latlng = [pos.coords.latitude, pos.coords.longitude];
 
     if (role === "driver") {
-      // zastępujemy/aktualizujemy marker kierowcy
-      if (driverStartMarker) driverStartMarker.setLatLng(latlng);
-      else driverStartMarker = L.marker(latlng, { icon: iconK }).addTo(map);
+      driverStartMarker.setLatLng(latlng); // marker kierowcy
     }
 
     if (role === "passenger") {
-      // zastępujemy/aktualizujemy marker pasażera
-      if (passengerStartMarker) passengerStartMarker.setLatLng(latlng);
-      else passengerStartMarker = L.marker(latlng, { icon: iconP }).addTo(map);
+      passengerStartMarker.setLatLng(latlng); // marker pasażera
     }
   });
 }
+
 
 
 /* ================= MAIN ================= */
@@ -383,16 +380,15 @@ function assign(role) {
 
   db.ref("session/" + role).set({ role });
 
-  navigator.geolocation.getCurrentPosition(p => {
-    db.ref(`session/${role}/currentLocation`).set({
-      latitude: p.coords.latitude,
-      longitude: p.coords.longitude
-    });
+navigator.geolocation.getCurrentPosition(p => {
+  db.ref(`session/${role}/currentLocation`).set({
+    latitude: p.coords.latitude,
+    longitude: p.coords.longitude
   });
 
-    // 🔴 NOWOŚĆ: pokaż marker startowy
-    setStartFromGeolocation(role);
-  });
+  setStartFromGeolocation(role); // 🔹 wyświetlenie startowego markera
+});
+
 
 
   // UI
