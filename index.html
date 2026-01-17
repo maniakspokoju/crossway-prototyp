@@ -87,7 +87,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.8</h1>
+																<h1>Crossway – fundament 3.9</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -357,6 +357,8 @@ if (dPath && pPath) {
 // 🔹 Aktywacja/dezaktywacja przycisku Akceptuj trasę
 acceptBtn.disabled = !overlapExists;
 acceptBtn.style.opacity = overlapExists ? "1" : "0.4";
+
+} // koniec funkcji update()
 
 
 db.ref("session").on("value", () => {
