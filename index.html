@@ -87,7 +87,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.3</h1>
+																<h1>Crossway – fundament 3.0</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -141,6 +141,19 @@ html, body {
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
+
+
+function showStartMarker(role, lat, lng) {
+  const latlng = [lat, lng];
+  if (role === "driver") {
+    driverStartMarker.setLatLng(latlng); // pokaż D
+  } 
+  if (role === "passenger") {
+    passengerStartMarker.setLatLng(latlng); // pokaż P
+  }
+}
+
+
 
 /* ================= FIREBASE ================= */
 firebase.initializeApp({
@@ -262,22 +275,6 @@ db.ref("session/accepted").on("value", snap => {
 
 
 
-function setStartFromGeolocation(role) {
-  if (!navigator.geolocation) return;
-
-  navigator.geolocation.getCurrentPosition(pos => {
-    const latlng = [pos.coords.latitude, pos.coords.longitude];
-
-    if (role === "driver") {
-      driverStartMarker.setLatLng(latlng); // marker kierowcy
-    }
-
-    if (role === "passenger") {
-      passengerStartMarker.setLatLng(latlng); // marker pasażera
-    }
-  });
-}
-
 
 
 /* ================= MAIN ================= */
@@ -381,14 +378,14 @@ function assign(role) {
   db.ref("session/" + role).set({ role });
 
 navigator.geolocation.getCurrentPosition(p => {
-  db.ref(`session/${role}/currentLocation`).set({
-    latitude: p.coords.latitude,
-    longitude: p.coords.longitude
-  });
+  const lat = p.coords.latitude;
+  const lng = p.coords.longitude;
 
-  setStartFromGeolocation(role); // 🔹 wyświetlenie startowego markera
+  db.ref(`session/${role}/currentLocation`).set({ latitude: lat, longitude: lng });
+
+  // 🔹 NOWOŚĆ – pokaż marker startowy od razu po wyborze roli
+  showStartMarker(role, lat, lng);
 });
-
 
 
   // UI
