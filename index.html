@@ -1,258 +1,250 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8" />
-<title>CROSSWAY – GRID TEST</title>
-
+<meta charset="UTF-8">
+<title>CROSSWAY – GRID PROTOTYP</title>
 <style>
   body {
     font-family: Arial, sans-serif;
-    margin: 0;
     background: #222;
-    color: #fff;
+    color: #eee;
+    margin: 0;
+    padding: 20px;
   }
+  body.driver { background: #1e2f1e; }
+  body.passenger { background: #2f1e1e; }
 
-  body.driver { background: #1f3a5f; }
-  body.passenger { background: #3a1f3a; }
-
-  #top {
-    padding: 10px;
-    display: flex;
-    gap: 10px;
-  }
+  h1 { margin-top: 0; }
 
   button {
-    padding: 10px 14px;
-    font-size: 14px;
+    padding: 8px 14px;
+    margin: 4px;
     cursor: pointer;
   }
-
-  button.active {
-    outline: 3px solid yellow;
-  }
-
-  #main {
-    display: flex;
-    gap: 20px;
-    padding: 10px;
-  }
-
-  #grid {
-    display: grid;
-    grid-template-columns: repeat(9, 40px);
-    grid-template-rows: repeat(9, 40px);
-    gap: 2px;
-  }
-
-  .cell {
-    background: #444;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .label {
-    background: #111;
-    font-weight: bold;
-  }
-
-  .start { background: #2ecc71; }
-  .end { background: #e74c3c; }
-  .route { background: #3498db; }
-  .overlap { background: #f1c40f; }
 
   table {
     border-collapse: collapse;
-    font-size: 13px;
+    margin-top: 10px;
   }
-
   td, th {
     border: 1px solid #555;
-    padding: 4px 6px;
+    width: 40px;
+    height: 40px;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .grid td {
+    background: #333;
+  }
+  .driver-cell { background: #2ecc71 !important; }
+  .passenger-cell { background: #e74c3c !important; }
+  .shared-cell { background: #f1c40f !important; color: #000; }
+
+  .panel {
+    margin-top: 20px;
+  }
+
+  .small {
+    font-size: 12px;
+    opacity: 0.8;
   }
 </style>
 </head>
-
 <body>
 
-<div id="top">
-  <button id="driverBtn">DRIVER</button>
-  <button id="passengerBtn">PASSENGER</button>
+<h1>CROSSWAY – GRID PROTOTYP</h1>
+
+<div>
+  <button onclick="selectRole('driver')">KIEROWCA</button>
+  <button onclick="selectRole('passenger')">PASAŻER</button>
 </div>
 
-<div id="main">
-  <div id="grid"></div>
-
-  <div>
-    <h3>Użytkownicy</h3>
-    <table id="usersTable">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Rola</th>
-          <th>Start</th>
-          <th>Cel</th>
-          <th>Match</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+<div class="panel">
+  <strong>Wybierz START, potem CEL</strong>
+  <div id="status" class="small"></div>
 </div>
+
+<table class="grid" id="grid"></table>
+
+<div class="panel">
+  <h3>UŻYTKOWNICY (REALTIME)</h3>
+  <table id="usersTable">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Rola</th>
+        <th>Start</th>
+        <th>Cel</th>
+        <th>Na trasie kierowcy</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-/* ================= STATE ================= */
+/* === FIREBASE CONFIG === */
+const firebaseConfig = {
+  databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-const userId = Math.random().toString(36).slice(2, 8);
+/* === USER === */
+const userId = crypto.randomUUID();
+const userRef = db.ref("users/" + userId);
+
 let role = null;
-let phase = "start"; // start | end
+let start = null;
+let end = null;
+let allUsers = {};
 
-const users = {};
-users[userId] = { id: userId };
-
-/* ================= UI ================= */
-
-const driverBtn = document.getElementById("driverBtn");
-const passengerBtn = document.getElementById("passengerBtn");
+/* === GRID === */
+const letters = ["A","B","C","D","E","F","G","H"];
 const grid = document.getElementById("grid");
-const tableBody = document.querySelector("#usersTable tbody");
-
-/* ================= ROLE ================= */
-
-driverBtn.onclick = () => setRole("driver");
-passengerBtn.onclick = () => setRole("passenger");
-
-function setRole(r) {
-  if (role) return; // BLOKADA zmiany roli
-  role = r;
-  users[userId].role = r;
-
-  document.body.className = r;
-  driverBtn.classList.toggle("active", r === "driver");
-  passengerBtn.classList.toggle("active", r === "passenger");
-}
-
-/* ================= GRID ================= */
-
-const letters = ["", "A","B","C","D","E","F","G","H"];
 
 function buildGrid() {
   grid.innerHTML = "";
-
-  for (let y = 8; y >= 0; y--) {
-    for (let x = 0; x <= 8; x++) {
-      const cell = document.createElement("div");
-      cell.className = "cell";
-
-      if (y === 0 && x === 0) cell.classList.add("label");
-      else if (y === 0) {
-        cell.textContent = letters[x];
-        cell.classList.add("label");
-      }
-      else if (x === 0) {
-        cell.textContent = y;
-        cell.classList.add("label");
-      }
-      else {
-        const pos = letters[x] + y;
-        cell.dataset.pos = pos;
-        cell.onclick = () => onCellClick(pos);
-      }
-
-      grid.appendChild(cell);
+  for (let y = 8; y >= 1; y--) {
+    const tr = document.createElement("tr");
+    for (let x = 0; x < 8; x++) {
+      const td = document.createElement("td");
+      const cell = letters[x] + y;
+      td.textContent = cell;
+      td.onclick = () => selectCell(cell);
+      tr.appendChild(td);
     }
+    grid.appendChild(tr);
   }
 }
-
 buildGrid();
 
-/* ================= CLICK LOGIC ================= */
-
-function onCellClick(pos) {
-  if (!role) return;
-
-  if (phase === "start") {
-    users[userId].start = pos;
-    phase = "end";
-  } else {
-    if (!validLine(users[userId].start, pos)) return alert("Tylko linia prosta!");
-    users[userId].end = pos;
-    users[userId].route = buildRoute(users[userId].start, pos);
-    phase = "done";
-  }
-
-  render();
+/* === ROLE === */
+function selectRole(r) {
+  if (role) return;
+  role = r;
+  document.body.classList.add(r);
+  userRef.set({ role });
 }
 
-/* ================= ROUTES ================= */
+/* === CELL SELECTION === */
+function selectCell(cell) {
+  if (!role) return;
 
-function validLine(a, b) {
-  return a[0] === b[0] || a[1] === b[1];
+  if (!start) {
+    start = cell;
+    updateStatus();
+    sync();
+  } else if (!end) {
+    if (!validRoute(start, cell)) {
+      alert("Trasa musi być w jednej linii");
+      return;
+    }
+    end = cell;
+    updateStatus();
+    sync();
+  }
+}
+
+/* === ROUTE LOGIC === */
+function validRoute(a, b) {
+  return a[0] === b[0] || a.slice(1) === b.slice(1);
 }
 
 function buildRoute(a, b) {
   const route = [];
-  const colA = a[0], colB = b[0];
-  const rowA = +a[1], rowB = +b[1];
-
-  if (colA === colB) {
-    const [min, max] = [rowA, rowB].sort((a,b)=>a-b);
-    for (let r = min; r <= max; r++) route.push(colA + r);
+  if (a[0] === b[0]) {
+    const col = a[0];
+    let y1 = +a.slice(1);
+    let y2 = +b.slice(1);
+    for (let y = Math.min(y1,y2); y <= Math.max(y1,y2); y++)
+      route.push(col + y);
   } else {
-    const [min, max] = [colA.charCodeAt(0), colB.charCodeAt(0)].sort((a,b)=>a-b);
-    for (let c = min; c <= max; c++) route.push(String.fromCharCode(c) + rowA);
+    const row = a.slice(1);
+    let x1 = letters.indexOf(a[0]);
+    let x2 = letters.indexOf(b[0]);
+    for (let x = Math.min(x1,x2); x <= Math.max(x1,x2); x++)
+      route.push(letters[x] + row);
   }
   return route;
 }
 
-/* ================= MATCH ================= */
-
-function checkMatch(passenger, driver) {
-  if (!driver.route || !passenger.start) return false;
-  return driver.route.includes(passenger.start);
-}
-
-/* ================= RENDER ================= */
-
-function render() {
-  document.querySelectorAll(".cell").forEach(c => {
-    c.classList.remove("start","end","route","overlap");
-  });
-
-  Object.values(users).forEach(u => {
-    if (!u.route) return;
-    u.route.forEach(p => mark(p, "route"));
-    mark(u.start, "start");
-    mark(u.end, "end");
-  });
-
-  tableBody.innerHTML = "";
-  Object.values(users).forEach(u => {
-    let match = "";
-    if (u.role === "passenger") {
-      match = Object.values(users)
-        .filter(x => x.role === "driver" && checkMatch(u,x))
-        .map(x => x.id)
-        .join(",");
-    }
-
-    tableBody.innerHTML += `
-      <tr>
-        <td>${u.id}</td>
-        <td>${u.role || ""}</td>
-        <td>${u.start || ""}</td>
-        <td>${u.end || ""}</td>
-        <td>${match}</td>
-      </tr>`;
+/* === SYNC === */
+function sync() {
+  if (!role || !start || !end) return;
+  userRef.update({
+    role,
+    start,
+    end,
+    route: buildRoute(start, end)
   });
 }
 
-function mark(pos, cls) {
-  const cell = [...document.querySelectorAll(".cell")]
-    .find(c => c.dataset.pos === pos);
-  if (cell) cell.classList.add(cls);
+/* === RENDER === */
+db.ref("users").on("value", snap => {
+  allUsers = snap.val() || {};
+  renderGrid();
+  renderTable();
+});
+
+function renderGrid() {
+  [...document.querySelectorAll(".grid td")].forEach(td => {
+    td.className = "";
+  });
+
+  const drivers = Object.values(allUsers).filter(u => u.role === "driver");
+  const passengers = Object.values(allUsers).filter(u => u.role === "passenger");
+
+  drivers.forEach(d => {
+    (d.route || []).forEach(c => markCell(c, "driver-cell"));
+  });
+
+  passengers.forEach(p => {
+    markCell(p.start, "passenger-cell");
+    drivers.forEach(d => {
+      if ((d.route || []).includes(p.start))
+        markCell(p.start, "shared-cell");
+    });
+  });
+}
+
+function markCell(cell, cls) {
+  [...grid.querySelectorAll("td")].forEach(td => {
+    if (td.textContent === cell) td.classList.add(cls);
+  });
+}
+
+/* === TABLE === */
+function renderTable() {
+  const tbody = document.querySelector("#usersTable tbody");
+  tbody.innerHTML = "";
+
+  const drivers = Object.values(allUsers).filter(u => u.role === "driver");
+
+  Object.entries(allUsers).forEach(([id,u]) => {
+    const tr = document.createElement("tr");
+    const onRoute = (u.role === "passenger" && drivers.some(d => (d.route||[]).includes(u.start)))
+      ? "TAK" : "-";
+
+    tr.innerHTML = `
+      <td>${id.slice(0,6)}</td>
+      <td>${u.role || "-"}</td>
+      <td>${u.start || "-"}</td>
+      <td>${u.end || "-"}</td>
+      <td>${onRoute}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function updateStatus() {
+  document.getElementById("status").textContent =
+    `START: ${start || "-"} | CEL: ${end || "-"}`;
 }
 </script>
 
