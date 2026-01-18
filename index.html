@@ -1,285 +1,196 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Crossway 5.3</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<meta charset="UTF-8" />
+<title>CROSSWAY</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
 <style>
-body { font-family: sans-serif; margin:0; transition: background-color 0.3s ease; }
-#map { height: calc(100vh - 80px); }
-#roleBar { display:flex; width:100%; }
-#roleBar button { width:50%; height:80px; font-size:28px; border-radius:0; cursor:pointer; }
-#driverBtn { background:#2f6fff; color:white; }
-#passengerBtn { background:#2fbf6f; color:white; }
-button:active { transform: scale(0.97); }
-#driverDestinationDiv, #passengerControls { display:none; margin:10px; }
-#passengerControls button { font-size:24px; padding:15px; border-radius:12px; cursor:pointer; }
-#passengerControls button:active { transform: scale(0.97); }
+body {
+  margin: 0;
+  font-family: sans-serif;
+}
+#map {
+  height: 70vh;
+}
+#panel {
+  padding: 10px;
+}
+button {
+  padding: 10px;
+  margin: 5px;
+}
+.driver {
+  background: #d0eaff;
+}
+.passenger {
+  background: #d0ffd8;
+}
+.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
 </style>
 </head>
+
 <body>
-<h1>Crossway 5.3</h1>
-
-<div id="roleBar">
-  <button id="driverBtn">Driver</button>
-  <button id="passengerBtn">Passenger</button>
-</div>
-
-<div id="passengerControls">
-  <div style="display:flex; gap:10px; margin-bottom:10px;">
-    <button id="modeBtn" style="flex:5;">Tryb A</button>
-    <button id="acceptBtn" style="flex:8; background:#ff5722; color:white;">Akceptuj trasę</button>
-  </div>
-  <div style="display:flex; gap:10px;">
-    <button id="saveDestinationBtn" style="flex:1;">Edytuj cel</button>
-    <button id="saveStartBtn" style="flex:1;">Edytuj start</button>
-  </div>
-</div>
-
-<div id="driverDestinationDiv">
-  <button id="saveDriverDestinationBtn">Edytuj cel</button>
-</div>
 
 <div id="map"></div>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<div id="panel">
+  <button id="driverBtn">DRIVER</button>
+  <button id="passengerBtn">PASSENGER</button>
+  <br>
+  <button id="setStartBtn" class="disabled">SET START</button>
+  <button id="setDestBtn" class="disabled">SET DEST</button>
+  <br>
+  <button id="acceptBtn" class="disabled">ACCEPT</button>
+</div>
 
 <script>
-// ===== USER ID =====
-let userId = localStorage.getItem("crossway_userId");
-if(!userId){ userId = crypto.randomUUID(); localStorage.setItem("crossway_userId", userId);}
-console.log("USER:", userId);
-
-// ===== DOM ELEMENTS =====
-const driverBtn = document.getElementById("driverBtn");
-const passengerBtn = document.getElementById("passengerBtn");
-const modeBtn = document.getElementById("modeBtn");
-const acceptBtn = document.getElementById("acceptBtn");
-const saveDestinationBtn = document.getElementById("saveDestinationBtn");
-const saveStartBtn = document.getElementById("saveStartBtn");
-const saveDriverDestinationBtn = document.getElementById("saveDriverDestinationBtn");
-
-// ===== FIREBASE =====
+/* ================= FIREBASE ================= */
 firebase.initializeApp({
-  apiKey:"AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
-  databaseURL:"https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
+  apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
+  databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
 });
 const db = firebase.database();
+
+/* ================= USER ================= */
+let userId = localStorage.getItem("crossway_userId");
+if (!userId) {
+  userId = crypto.randomUUID();
+  localStorage.setItem("crossway_userId", userId);
+}
+console.log("USER:", userId);
+
 const userRef = db.ref("users/" + userId);
 
+/* ================= STATE ================= */
 let currentRole = null;
-let currentMode = "A";
-let accepted = false;
-let acceptLocked = false;
+let picking = null;
+let myRoute = null;
 
-// ===== MAPA =====
-const map = L.map("map").setView([52.1,19.9],12);
+/* ================= MAP ================= */
+const map = L.map("map").setView([52.1, 19.9], 11);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-const driverLine = L.polyline([], { color:"blue", weight:5 }).addTo(map);
-const passengerLine = L.polyline([], { color:"green", weight:5 }).addTo(map);
-const overlapLine = L.polyline([], { color:"red", weight:7 }).addTo(map);
+const startMarker = L.marker([0, 0]);
+const destMarker = L.marker([0, 0]);
+const routeLayer = L.geoJSON().addTo(map);
 
-const iconK = L.divIcon({html:"<div style='font-size:26px;font-weight:bold;color:#2f6fff'>K</div>", className:"", iconSize:[30,30], iconAnchor:[15,15]});
-const iconP = L.divIcon({html:"<div style='font-size:26px;font-weight:bold;color:#2fbf6f'>P</div>", className:"", iconSize:[30,30], iconAnchor:[15,15]});
+/* ================= UI ================= */
+const driverBtn = document.getElementById("driverBtn");
+const passengerBtn = document.getElementById("passengerBtn");
+const setStartBtn = document.getElementById("setStartBtn");
+const setDestBtn = document.getElementById("setDestBtn");
+const acceptBtn = document.getElementById("acceptBtn");
 
-const driverStartMarker = L.marker([0,0], {icon:iconK}).addTo(map);
-const passengerStartMarker = L.marker([0,0], {icon:iconP}).addTo(map);
-const driverEndMarker = L.marker([0,0]).addTo(map);
-const passengerEndMarker = L.marker([0,0]).addTo(map);
+/* ================= ROLE ================= */
+function assignRole(role) {
+  if (currentRole) return;
 
-let editingDriverDestination = false, editingPassengerDestination=false, editingPassengerStart=false;
-let selectedPoint = null;
-const TOLERANCE_METERS = 60;
+  currentRole = role;
+  document.body.className = role;
+  driverBtn.classList.add("disabled");
+  passengerBtn.classList.add("disabled");
 
-function distanceMeters(a,b){
-  const R=6371000; const dLat=(b[0]-a[0])*Math.PI/180; const dLng=(b[1]-a[1])*Math.PI/180;
-  const x=dLng*Math.cos((a[0]+b[0])/2*Math.PI/180);
-  return Math.sqrt(dLat*dLat + x*x)*R;
-}
+  setStartBtn.classList.remove("disabled");
+  setDestBtn.classList.remove("disabled");
 
-function findClosestIndex(point,path){
-  let min=Infinity, idx=-1;
-  path.forEach((p,i)=>{ const d=distanceMeters(point,p); if(d<min){min=d; idx=i;}});
-  return min<=TOLERANCE_METERS ? idx : -1;
-}
-
-map.on('click', function(e){
-  if(!editingDriverDestination && !editingPassengerDestination && !editingPassengerStart) return;
-  selectedPoint=[e.latlng.lat,e.latlng.lng];
-  if(editingDriverDestination) driverEndMarker.setLatLng(selectedPoint);
-  if(editingPassengerDestination) passengerEndMarker.setLatLng(selectedPoint);
-  if(editingPassengerStart) passengerStartMarker.setLatLng(selectedPoint);
-});
-
-// ===== OSRM =====
-async function route(a,b){
-  const url=`https://router.project-osrm.org/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`;
-  const r = await fetch(url).then(r=>r.json());
-  return r.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
-}
-
-// ===== FUNKCJE UI =====
-function setBackgroundFromRole(){
-  if(currentRole==="driver") document.body.style.backgroundColor="#2f6fff";
-  else if(currentRole==="passenger") document.body.style.backgroundColor="#2fbf6f";
-  else document.body.style.backgroundColor="white";
-}
-
-function updateUI(){
-  setBackgroundFromRole();
-  document.getElementById("passengerControls").style.display = currentRole==="passenger" ? "block" : "none";
-  document.getElementById("driverDestinationDiv").style.display = currentRole==="driver" ? "block" : "none";
-}
-
-// ===== ROLE =====
-function assign(role){
-  if(currentRole) return; // nie zmieniaj roli w trakcie
-  currentRole=role;
-
-  // zapis roli w Firebase
-  userRef.child("role").set(role);
-
-  navigator.geolocation.getCurrentPosition(p=>{
-    const lat=p.coords.latitude;
-    const lng=p.coords.longitude;
-    userRef.child("currentLocation").set({latitude:lat,longitude:lng});
-    if(role==="driver") driverStartMarker.setLatLng([lat,lng]);
-    if(role==="passenger") passengerStartMarker.setLatLng([lat,lng]);
+  userRef.set({
+    role,
+    active: true
   });
 
-  updateUI();
-}
-
-// ===== AKTUALIZACJA GUZIKÓW =====
-function updateRoleAvailability(){
-  db.ref("users").on("value", snap=>{
-    const users = snap.val() || {};
-    let drivers=[], passengers=[];
-    for(const [id,u] of Object.entries(users)){
-      if(u.role==="driver") drivers.push({id,...u});
-      if(u.role==="passenger") passengers.push({id,...u});
-    }
-
-    // DRIVER
-    const iAmDriver = drivers.some(d=>d.id===userId);
-    driverBtn.disabled = iAmDriver || drivers.length>=4;
-    driverBtn.style.opacity = driverBtn.disabled?"0.4":"1";
-    driverBtn.innerText = iAmDriver?"Jesteś Driver":"Driver";
-
-    // PASSENGER
-    const iAmPassenger = passengers.some(p=>p.id===userId);
-    passengerBtn.disabled = iAmPassenger;
-    passengerBtn.style.opacity = passengerBtn.disabled?"0.4":"1";
-    passengerBtn.innerText = iAmPassenger?"Jesteś Passenger":"Passenger";
+  navigator.geolocation.getCurrentPosition(pos => {
+    const loc = {
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude
+    };
+    userRef.child("start").set(loc);
+    startMarker.setLatLng([loc.lat, loc.lng]).addTo(map);
   });
 }
 
-// ===== MAIN UPDATE =====
-async function update(){
-  driverLine.setLatLngs([]);
-  passengerLine.setLatLngs([]);
-  overlapLine.setLatLngs([]);
+driverBtn.onclick = () => assignRole("driver");
+passengerBtn.onclick = () => assignRole("passenger");
 
-  const usersSnap = await db.ref("users").once("value");
-  const users = usersSnap.val() || {};
+/* ================= PICK POINTS ================= */
+setStartBtn.onclick = () => picking = "start";
+setDestBtn.onclick = () => picking = "dest";
 
-  let driverData=null, passengerData=null;
-  for(const [id,u] of Object.entries(users)){
-    if(u.role==="driver") driverData=u;
-    if(u.role==="passenger") passengerData=u;
-  }
+map.on("click", e => {
+  if (!picking) return;
 
-  let dPath=null, pPath=null;
-  if(driverData?.currentLocation && driverData?.destination){
-    dPath = await route([driverData.currentLocation.latitude, driverData.currentLocation.longitude],
-                        [driverData.destination.latitude, driverData.destination.longitude]);
-    driverLine.setLatLngs(dPath);
-    if(dPath.length){ driverStartMarker.setLatLng(dPath[0]); driverEndMarker.setLatLng(dPath.at(-1)); }
-  }
+  const point = { lat: e.latlng.lat, lng: e.latlng.lng };
+  userRef.child(picking).set(point);
 
-  if(passengerData?.currentLocation && passengerData?.destination){
-    pPath = await route([passengerData.currentLocation.latitude, passengerData.currentLocation.longitude],
-                        [passengerData.destination.latitude, passengerData.destination.longitude]);
-    passengerLine.setLatLngs(pPath);
-    if(pPath.length){ passengerStartMarker.setLatLng(pPath[0]); passengerEndMarker.setLatLng(pPath.at(-1)); }
-  }
+  if (picking === "start") startMarker.setLatLng([point.lat, point.lng]).addTo(map);
+  if (picking === "dest") destMarker.setLatLng([point.lat, point.lng]).addTo(map);
 
-  // trasa wspólna
-  let overlapExists=false;
-  if(dPath && pPath){
-    const startIdx = findClosestIndex([passengerData.currentLocation.latitude, passengerData.currentLocation.longitude], dPath);
-    if(startIdx!==-1){
-      let endIdx = startIdx;
-      // tryb A = przecięcia
-      if(currentMode==="A"){
-        const hits=[];
-        dPath.forEach((dp,i)=>pPath.forEach(pp=>{ if(distanceMeters(dp,pp)<=TOLERANCE_METERS) hits.push(i); }));
-        const valid=[...new Set(hits)].filter(i=>i>=startIdx);
-        if(valid.length>=2) endIdx=Math.max(...valid);
-      }
-      // tryb B = optymalny
-      else{
-        let bestDist=Infinity;
-        for(let i=startIdx;i<dPath.length;i++){
-          const dist=distanceMeters(dPath[i],[passengerData.destination.latitude,passengerData.destination.longitude]);
-          if(dist<bestDist){bestDist=dist; endIdx=i;}
-        }
-      }
-      overlapLine.setLatLngs(dPath.slice(startIdx,endIdx+1));
-      overlapExists=true;
-    }
-  }
-
-  acceptBtn.disabled = !overlapExists || acceptLocked;
-  acceptBtn.style.opacity = acceptBtn.disabled?"0.4":"1";
-  updateUI();
-}
-
-// ===== BUTTONS =====
-driverBtn.onclick=()=>assign("driver");
-passengerBtn.onclick=()=>assign("passenger");
-
-modeBtn.onclick=()=>{
-  const newMode = currentMode==="A"?"B":"A";
-  db.ref("session/mode").set(newMode);
-};
-db.ref("session/mode").on("value",snap=>{
-  const mode=snap.val(); if(mode){ currentMode=mode; modeBtn.innerText="Tryb "+currentMode; update(); }
+  picking = null;
 });
 
-acceptBtn.onclick=()=>{
-  if(acceptLocked) return;
-  acceptLocked=true;
-  db.ref("session/accepted").set(true);
-  acceptBtn.disabled=true; acceptBtn.style.opacity="0.4";
-};
+/* ================= ROUTING ================= */
+function calculateRoute(start, dest) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
 
-saveDriverDestinationBtn.onclick=()=>{
-  if(!editingDriverDestination){ editingDriverDestination=true; saveDriverDestinationBtn.innerText="Zapisz cel"; return; }
-  if(selectedPoint){ userRef.child("destination").set({latitude:selectedPoint[0],longitude:selectedPoint[1]}); }
-  editingDriverDestination=false; saveDriverDestinationBtn.innerText="Edytuj cel"; selectedPoint=null;
-};
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.routes) return;
+      myRoute = data.routes[0].geometry;
+      userRef.child("route").set(myRoute);
+    })
+    .catch(() => {});
+}
 
-saveDestinationBtn.onclick=()=>{
-  if(!editingPassengerDestination){ editingPassengerDestination=true; saveDestinationBtn.innerText="Zapisz cel"; return; }
-  if(selectedPoint){ userRef.child("destination").set({latitude:selectedPoint[0],longitude:selectedPoint[1]}); }
-  editingPassengerDestination=false; saveDestinationBtn.innerText="Edytuj cel"; selectedPoint=null;
-};
+/* ================= WATCH MY DATA ================= */
+userRef.on("value", snap => {
+  const d = snap.val();
+  if (!d || !d.start || !d.dest) return;
 
-saveStartBtn.onclick=()=>{
-  if(!editingPassengerStart){ editingPassengerStart=true; saveStartBtn.innerText="Zapisz start"; return; }
-  if(selectedPoint){ userRef.child("currentLocation").set({latitude:selectedPoint[0],longitude:selectedPoint[1]}); }
-  editingPassengerStart=false; saveStartBtn.innerText="Edytuj start"; selectedPoint=null;
-};
+  calculateRoute(d.start, d.dest);
+});
 
-// ===== START =====
-updateRoleAvailability();
-update();
-setInterval(update,3000);
+/* ================= DRAW ALL ROUTES ================= */
+db.ref("users").on("value", snap => {
+  routeLayer.clearLayers();
+
+  snap.forEach(u => {
+    const data = u.val();
+    if (!data.route) return;
+
+    L.geoJSON(data.route, {
+      style: {
+        color: data.role === "driver" ? "blue" : "green",
+        weight: 4
+      }
+    }).addTo(routeLayer);
+  });
+});
+
+/* ================= ACCEPT ================= */
+db.ref("users").on("value", snap => {
+  let routes = [];
+  snap.forEach(u => {
+    if (u.val().route) routes.push(u.val().route);
+  });
+
+  if (routes.length >= 2) {
+    acceptBtn.classList.remove("disabled");
+  }
+});
 </script>
+
 </body>
 </html>
