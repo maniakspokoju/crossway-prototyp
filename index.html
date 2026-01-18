@@ -86,14 +86,14 @@ html, body {
 }
 
 #driverDestinationDiv button {
-  width: 100%;
+  width: 95%;
 }
 
 </style>
 </head>
 
 <body>
-																<h1>Crossway – fundament 4.5</h1>
+																<h1>Crossway – fundament 4.6</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -576,7 +576,12 @@ const acceptBtn = document.getElementById("acceptBtn");
 acceptBtn.onclick = () => {
   db.ref("session/accepted").set(true);
   lockFormsAfterAccept();
+
+  // 🔒 dezaktywacja guzika po akceptacji
+  acceptBtn.disabled = true;
+  acceptBtn.style.opacity = "0.4";
 };
+
 
 
 function lockFormsAfterAccept() {
