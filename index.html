@@ -93,7 +93,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 4.6</h1>
+																<h1>Crossway – fundament 4.9</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -116,23 +116,27 @@ html, body {
 <button id="saveDriverDestinationBtn">Edytuj cel</button>
 </div>
 
-<div id="passengerDestinationDiv">
-<h3>Cel pasażera</h3>
 
-<!-- <input id="destLat" placeholder="###" step="1" inputmode="numeric"> -->			<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
-<!-- <input id="destLng" placeholder="###" step="1" inputmode="numeric"> -->			<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
 
-<button id="saveDestinationBtn">Edytuj cel</button>
+<!-- PANEL KONTROLI PASAŻERA -->
+<div id="passengerControls" style="display:none; margin-top:15px; width:100%;">
+
+  <!-- ===== PIERWSZY WIERSZ ===== -->
+  <div style="display:flex; width:100%; margin-bottom:10px;">
+    <button id="modeBtn" style="flex:5; margin-right:5px;">Tryb A</button>
+    <button id="acceptBtn" style="flex:8; background:#ff5722; color:white;">Akceptuj trasę</button>
+  </div>
+
+  <!-- ===== DRUGI WIERSZ ===== -->
+  <div style="display:flex; width:100%;">
+    <button id="saveDestinationBtn" style="flex:1; margin-right:5px;">Edytuj cel</button>
+    <button id="saveStartBtn" style="flex:1;">Edytuj start</button>
+  </div>
+
 </div>
 
-<div id="passengerStartDiv" style="margin-top:15px; display:none;">
-  <h3>Start pasażera (zmiana dla testów)</h3>
 
-<!-- <input type="number" id="startLat" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
-<!-- <input type="number" id="startLng" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
 
-  <button id="saveStartBtn">Edytuj start</button>
-  </div>
 
 <div id="savedLocations" style="margin-top:10px; font-weight:bold;">
   <p id="driverSavedInfo" style="color:#2f6fff;"></p>
@@ -170,6 +174,8 @@ db.ref("session").remove();
 
 let currentMode = "A"; // A = przecięcia, B = optymalny dystans
 let accepted = false;
+let acceptLocked = false; // 🔒 lokalna blokada guzika
+
 
 let currentRole = null; // "driver" | "passenger"
 
@@ -366,8 +372,11 @@ if (dPath && pPath) {
 }
 
 // 🔹 Aktywacja/dezaktywacja przycisku Akceptuj trasę
-acceptBtn.disabled = !overlapExists;
-acceptBtn.style.opacity = overlapExists ? "1" : "0.4";
+if (!acceptLocked) {
+  acceptBtn.disabled = !overlapExists;
+  acceptBtn.style.opacity = overlapExists ? "1" : "0.4";
+}
+
 
 } // koniec funkcji update()
 
@@ -574,13 +583,17 @@ db.ref("session/mode").on("value", snap => {
 const acceptBtn = document.getElementById("acceptBtn");
 
 acceptBtn.onclick = () => {
+  if (acceptLocked) return; // 🔒 zabezpieczenie
+
+  acceptLocked = true;
+
   db.ref("session/accepted").set(true);
   lockFormsAfterAccept();
 
-  // 🔒 dezaktywacja guzika po akceptacji
   acceptBtn.disabled = true;
   acceptBtn.style.opacity = "0.4";
 };
+
 
 
 
