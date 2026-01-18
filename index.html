@@ -7,10 +7,13 @@
   body { font-family: Arial, sans-serif; }
   #roleSelect { margin: 10px 0; }
   #grid { border-collapse: collapse; margin: 20px 0; }
-  #grid td { width: 40px; height: 40px; border: 1px solid #aaa; text-align: center; vertical-align: middle; cursor: pointer; position: relative; }
-  .sharedCell { background-color: red !important; }
+  #grid td { width: 40px; height: 40px; border: 1px solid #aaa; text-align: center; vertical-align: middle; cursor: pointer; }
+  .driverCell { background-color: #add8e6; }
+  .passengerCell { background-color: #90ee90; }
+  .sharedCell { background-color: #ff6961; }
   #usersTable { margin-top: 20px; border-collapse: collapse; width: 100%; }
   #usersTable th, #usersTable td { border: 1px solid #000; padding: 5px; text-align: center; }
+  .driverColorBox { display:inline-block; width:20px; height:20px; vertical-align:middle; margin-right:5px; }
   #controls { margin-top: 10px; }
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -18,7 +21,7 @@
 </head>
 <body>
 
-<h1>Crossway – Szachownica</h1>
+<h1>Crossway – Szachownica 1</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -29,7 +32,7 @@
   <button id="prevDriverBtn">⬅ Cofnij</button>
   <button id="nextDriverBtn">➡ Dalej</button>
   <button id="acceptBtn">✅ Akceptuj</button>
-  <button id="resetBtn">🛑 Zakończ przejazd</button>
+  <button id="resetBtn">⛔ Zakończ przejazd</button>
 </div>
 
 <table id="grid"></table>
@@ -37,42 +40,43 @@
 <h2>Użytkownicy / trasy</h2>
 <table id="usersTable">
   <thead>
-    <tr id="usersHeader">
+    <tr>
       <th>ID</th>
-      <th>Kolor</th>
       <th>Rola</th>
+      <th>Kolor</th>
       <th>Start</th>
       <th>Cel</th>
+      <th colspan="0" id="passengerHeaders">Pasażerowie</th>
     </tr>
   </thead>
-  <tbody id="usersBody"></tbody>
+  <tbody></tbody>
 </table>
 
 <script>
   // ====== CONFIG FIREBASE ======
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "crossway-prototyp",
-    storageBucket: "YOUR_BUCKET",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
+  authDomain: "crossway-prototyp.firebaseapp.com",
+  projectId: "crossway-prototyp",
+  storageBucket: "crossway-prototyp.firebasestorage.app",
+  messagingSenderId: "852476458596",
+  appId: "1:852476458596:web:f901da16de7dc8a3551171"
+};
   const app = firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  const ROWS=8, COLS=8;
+  // ====== STANY ======
+  const ROWS = 8, COLS = 8;
   let userId = crypto.randomUUID();
-  let role = null;
+  let role = null; // 'driver' lub 'passenger'
   let gridStart = null;
   let gridEnd = null;
   let usersData = {};
   let matchedDrivers = [];
   let selectedDriverIndex = 0;
-  const driverColors = {};
-  const passengersCols = {}; // ID pasażera -> numer kolumny
+  let driverColors = {};
 
+  // ====== ELEMENTY ======
   const gridEl = document.getElementById('grid');
   const driverBtn = document.getElementById('driverBtn');
   const passengerBtn = document.getElementById('passengerBtn');
@@ -80,22 +84,23 @@
   const nextDriverBtn = document.getElementById('nextDriverBtn');
   const acceptBtn = document.getElementById('acceptBtn');
   const resetBtn = document.getElementById('resetBtn');
-  const usersHeader = document.getElementById('usersHeader');
-  const usersBody = document.getElementById('usersBody');
+  const usersTableBody = document.querySelector('#usersTable tbody');
+  const passengerHeaders = document.getElementById('passengerHeaders');
 
+  // ====== INICJALIZACJA GRIDU ======
   function initGrid() {
-    gridEl.innerHTML='';
+    gridEl.innerHTML = '';
     const header = document.createElement('tr');
-    header.innerHTML='<th></th>'+Array.from({length:COLS},(_,i)=>`<th>${String.fromCharCode(65+i)}</th>`).join('');
+    header.innerHTML = '<th></th>' + [...Array(COLS)].map((_,c)=>`<th>${c+1}</th>`).join('');
     gridEl.appendChild(header);
     for(let r=0;r<ROWS;r++){
       let tr = document.createElement('tr');
-      tr.innerHTML=`<th>${r+1}</th>`;
+      tr.innerHTML = `<th>${String.fromCharCode(65+r)}</th>`;
       for(let c=0;c<COLS;c++){
-        let td=document.createElement('td');
-        td.dataset.row=r;
-        td.dataset.col=c;
-        td.onclick=()=>cellClick(r,c);
+        let td = document.createElement('td');
+        td.dataset.row = r;
+        td.dataset.col = c;
+        td.onclick = () => cellClick(r,c);
         tr.appendChild(td);
       }
       gridEl.appendChild(tr);
@@ -104,9 +109,11 @@
 
   function cellClick(r,c){
     if(!role) return;
-    if(!gridStart){ gridStart={r,c}; updateGrid(); }
-    else if(!gridEnd){ 
-      gridEnd={r,c};
+    if(!gridStart){
+      gridStart = {r,c};
+      updateGrid();
+    } else if(!gridEnd){
+      gridEnd = {r,c};
       if(gridStart.r!==gridEnd.r && gridStart.c!==gridEnd.c){
         alert("Trasa musi być w linii prostej!");
         gridEnd=null;
@@ -118,151 +125,212 @@
   }
 
   function saveRoute(){
-    const start=`${gridStart.r},${gridStart.c}`;
-    const end=`${gridEnd.r},${gridEnd.c}`;
-    const color = role==='driver' ? getRandomColor() : null;
-    db.ref("users/"+userId).set({role,start,end,color,acceptedBy:null});
+    const start = `${gridStart.r},${gridStart.c}`;
+    const end = `${gridEnd.r},${gridEnd.c}`;
+    let color = role==='driver'? getRandomColor() : null;
+    if(role==='driver') driverColors[userId]=color;
+    db.ref("users/"+userId).set({
+      role,
+      start,
+      end,
+      color,
+      acceptedBy: null
+    });
   }
 
   function getRandomColor(){
-    const letters='0123456789ABCDEF'; let color='#';
+    const letters='0123456789ABCDEF';
+    let color='#';
     for(let i=0;i<6;i++) color+=letters[Math.floor(Math.random()*16)];
     return color;
   }
 
-  function updateGrid(){
-    for(let r=0;r<ROWS;r++)
-      for(let c=0;c<COLS;c++)
-        gridEl.rows[r+1].cells[c+1].style.backgroundColor='';
-
-    if(gridStart) drawRoute(gridStart,gridEnd || gridStart,'passengerCell');
-
-    // kierowca rysuje własną trasę
-    if(role==='driver' && gridStart && gridEnd){
-      drawRoute(gridStart,gridEnd,driverColors[userId]||'blue');
-      Object.entries(usersData).forEach(([id,u])=>{
-        if(u.acceptedBy===userId && u.start && u.end){
-          const pStart=parseCell(u.start); const pEnd=parseCell(u.end);
-          drawRoute(pStart,pEnd,'passengerCell');
-          const shared = getSharedCells(gridStart,gridEnd,pStart,pEnd);
-          shared.forEach(c=>gridEl.rows[c.r+1].cells[c.c+1].style.backgroundColor='red');
-        }
-      });
-    }
-
-    // pasażer
-    if(role==='passenger' && gridStart && gridEnd){
-      drawRoute(gridStart,gridEnd,'passengerCell'); // zawsze własna
-      if(matchedDrivers[selectedDriverIndex]){
-        const d=matchedDrivers[selectedDriverIndex];
-        const dStart=parseCell(d.start), dEnd=parseCell(d.end);
-        drawRoute(dStart,dEnd,d.color||'blue');
-        const shared=getSharedCells(gridStart,gridEnd,dStart,dEnd);
-        shared.forEach(c=>gridEl.rows[c.r+1].cells[c.c+1].style.backgroundColor='red');
-      }
-    }
-  }
+  function parseCell(str){ const [r,c]=str.split(',').map(Number); return {r,c}; }
 
   function drawRoute(start,end,className){
-    const color=className==='driverCell'? 'blue' : className==='passengerCell'? 'green' : className;
     if(start.r===end.r)
       for(let c=Math.min(start.c,end.c);c<=Math.max(start.c,end.c);c++)
-        gridEl.rows[start.r+1].cells[c+1].style.backgroundColor=color;
+        gridEl.rows[start.r+1].cells[c+1].classList.add(className);
     else
       for(let r=Math.min(start.r,end.r);r<=Math.max(start.r,end.r);r++)
-        gridEl.rows[r+1].cells[start.c+1].style.backgroundColor=color;
+        gridEl.rows[r+1].cells[start.c+1].classList.add(className);
   }
 
-  function parseCell(str){const [r,c]=str.split(',').map(Number);return {r,c};}
-  function getSharedCells(s1,e1,s2,e2){
-    const cells1=(s1.r===e1.r)?Array.from({length:Math.abs(e1.c-s1.c)+1},(_,i)=>({r:s1.r,c:Math.min(s1.c,e1.c)+i})):Array.from({length:Math.abs(e1.r-s1.r)+1},(_,i)=>({r:Math.min(s1.r,e1.r)+i,c:s1.c}));
-    const cells2=(s2.r===e2.r)?Array.from({length:Math.abs(e2.c-s2.c)+1},(_,i)=>({r:s2.r,c:Math.min(s2.c,e2.c)+i})):Array.from({length:Math.abs(e2.r-s2.r)+1},(_,i)=>({r:Math.min(s2.r,e2.r)+i,c:s2.c}));
+  function getRouteCells(start,end){
+    let cells=[];
+    if(start.r===end.r)
+      for(let c=Math.min(start.c,end.c);c<=Math.max(start.c,end.c);c++) cells.push({r:start.r,c});
+    else
+      for(let r=Math.min(start.r,end.r);r<=Math.max(start.r,end.r);r++) cells.push({r,c:start.c});
+    return cells;
+  }
+
+  function getSharedCells(cells1,cells2){
     return cells1.filter(c1=>cells2.some(c2=>c1.r===c2.r && c1.c===c2.c));
   }
 
-  driverBtn.onclick=()=>{
-    role='driver'; gridStart=null; gridEnd=null;
-    document.body.style.backgroundColor="#ddeeff";
-    driverBtn.disabled=true; passengerBtn.disabled=true;
+  // ====== OBSŁUGA PRZYCISKÓW ======
+  driverBtn.onclick = ()=>{
+    role='driver';
+    gridStart=null; gridEnd=null;
+    document.body.style.backgroundColor="#add8e6";
     initGrid();
+    driverBtn.disabled=true; passengerBtn.disabled=true;
   };
-  passengerBtn.onclick=()=>{
-    role='passenger'; gridStart=null; gridEnd=null;
-    document.body.style.backgroundColor="#ddffdd";
-    driverBtn.disabled=true; passengerBtn.disabled=true;
+  passengerBtn.onclick = ()=>{
+    role='passenger';
+    gridStart=null; gridEnd=null;
+    document.body.style.backgroundColor="#90ee90";
     initGrid();
+    driverBtn.disabled=true; passengerBtn.disabled=true;
   };
 
-  nextDriverBtn.onclick=()=>{
+  nextDriverBtn.onclick = ()=>{
     if(matchedDrivers.length===0) return;
-    selectedDriverIndex=(selectedDriverIndex+1)%matchedDrivers.length;
+    selectedDriverIndex = (selectedDriverIndex+1)%matchedDrivers.length;
     updateGrid();
   };
-  prevDriverBtn.onclick=()=>{
+  prevDriverBtn.onclick = ()=>{
     if(matchedDrivers.length===0) return;
-    selectedDriverIndex=(selectedDriverIndex-1+matchedDrivers.length)%matchedDrivers.length;
+    selectedDriverIndex = (selectedDriverIndex-1 + matchedDrivers.length)%matchedDrivers.length;
     updateGrid();
   };
 
-  acceptBtn.onclick=()=>{
-    if(role!=='passenger') return;
-    const driver=matchedDrivers[selectedDriverIndex];
+  acceptBtn.onclick = ()=>{
+    if(role!=='passenger' || matchedDrivers.length===0) return;
+    const driver = matchedDrivers[selectedDriverIndex];
     db.ref("users/"+driver.id+"/acceptedBy").set(userId);
-    driverBtn.disabled=true; passengerBtn.disabled=true;
-    acceptBtn.disabled=true; nextDriverBtn.disabled=true; prevDriverBtn.disabled=true;
+    disableButtons(driver.id,userId);
+    updateGrid();
   };
 
-  resetBtn.onclick=()=>{
+  resetBtn.onclick = ()=>{
     db.ref("users").remove();
     gridStart=null; gridEnd=null;
-    usersData={}; matchedDrivers=[]; selectedDriverIndex=0;
-    driverBtn.disabled=false; passengerBtn.disabled=false;
+    matchedDrivers=[];
+    selectedDriverIndex=0;
+    driverColors={};
     initGrid();
   };
 
+  function disableButtons(driverId,passengerId){
+    if(driverId===userId || passengerId===userId) {
+      driverBtn.disabled=true; passengerBtn.disabled=true;
+      prevDriverBtn.disabled=true; nextDriverBtn.disabled=true;
+      acceptBtn.disabled=true;
+    }
+  }
+
+  // ====== OBSŁUGA DANYCH FIREBASE ======
   function refreshUsers(snapshot){
     usersData=snapshot.val()||{};
+    updateUsersTable();
+    updateMatchedDrivers();
+    updateGrid();
+  }
+
+  function updateMatchedDrivers(){
+    matchedDrivers=[];
+    if(role!=='passenger' || !gridStart) return;
+    let ps = gridStart;
+    let count=0;
     Object.entries(usersData).forEach(([id,u])=>{
-      if(u.role==='driver' && !u.color) u.color=getRandomColor();
-      if(u.role==='driver') driverColors[id]=u.color;
+      if(u.role==='driver' && u.start && u.end){
+        const dCells=getRouteCells(parseCell(u.start),parseCell(u.end));
+        const pCells=getRouteCells(gridStart,gridEnd||gridStart); // jeśli pasażer nie wybrał jeszcze celu
+        if(pCells.some(pc=>dCells.some(dc=>dc.r===pc.r && dc.c===pc.c))){
+          matchedDrivers.push({...u,id});
+        }
+      }
     });
+    selectedDriverIndex=0;
+  }
 
-    if(role==='passenger' && gridStart){
-      matchedDrivers = Object.entries(usersData)
-        .filter(([id,u])=> u.role==='driver' && u.start && u.end)
-        .filter(([id,u])=>{
-          const ps=gridStart;
-          const dStart=parseCell(u.start); const dEnd=parseCell(u.end);
-          const cells=(dStart.r===dEnd.r)?Array.from({length:Math.abs(dEnd.c-dStart.c)+1},(_,i)=>({r:dStart.r,c:Math.min(dStart.c,dEnd.c)+i})):Array.from({length:Math.abs(dEnd.r-dStart.r)+1},(_,i)=>({r:Math.min(dStart.r,dEnd.r)+i,c:dStart.c}));
-          return cells.some(c=>c.r===ps.r && c.c===ps.c);
-        }).map(([id,u])=>({id,...u}));
-      selectedDriverIndex=0;
+  function updateGrid(){
+    // wyczyść grid
+    for(let r=1;r<=ROWS;r++){
+      for(let c=1;c<=COLS;c++){
+        gridEl.rows[r].cells[c].className='';
+      }
     }
-
-    updateUsersTable(); updateGrid();
+    // własna trasa
+    if(gridStart && gridEnd){
+      drawRoute(gridStart,gridEnd, role==='driver' ? 'driverCell':'passengerCell');
+    }
+    // dla pasażera: trasy dopasowanych kierowców
+    if(role==='passenger'){
+      matchedDrivers.forEach((driver,idx)=>{
+        const dStart=parseCell(driver.start);
+        const dEnd=parseCell(driver.end);
+        drawRoute(dStart,dEnd,'driverCell');
+        if(gridStart && gridEnd){
+          const shared=getSharedCells(getRouteCells(dStart,dEnd),getRouteCells(gridStart,gridEnd));
+          shared.forEach(c=>{
+            gridEl.rows[c.r+1].cells[c.c+1].classList.add('sharedCell');
+          });
+        }
+      });
+    }
+    // dla kierowcy: pokaż zaakceptowane pasażery
+    if(role==='driver'){
+      Object.entries(usersData).forEach(([id,u])=>{
+        if(u.acceptedBy===userId){
+          const pStart=parseCell(u.start);
+          const pEnd=parseCell(u.end);
+          drawRoute(pStart,pEnd,'passengerCell');
+          const dCells=getRouteCells(parseCell(u.start),parseCell(u.end));
+          const shared=getSharedCells(getRouteCells(parseCell(u.start),parseCell(u.end)),getRouteCells(parseCell(u.start),parseCell(u.end)));
+          shared.forEach(c=>{
+            gridEl.rows[c.r+1].cells[c.c+1].classList.add('sharedCell');
+          });
+        }
+      });
+    }
   }
 
   function updateUsersTable(){
-    usersHeader.innerHTML='<th>ID</th><th>Kolor</th><th>Rola</th><th>Start</th><th>Cel</th>';
-    // dodaj kolumny pasażerów
-    const passengerIds = Object.entries(usersData).filter(([id,u])=>u.role==='passenger').map(([id,u])=>id);
-    passengerIds.forEach(pid=>{
-      if(!passengersCols[pid]){
-        passengersCols[pid]=usersHeader.children.length;
-        const th=document.createElement('th'); th.textContent=pid; usersHeader.appendChild(th);
-      }
+    usersTableBody.innerHTML='';
+    // przygotuj kolumny pasażerów
+    const passengerIds=[];
+    Object.entries(usersData).forEach(([id,u])=>{
+      if(u.role==='passenger') passengerIds.push(id);
+    });
+    // nagłówki
+    const thRow = usersTableBody.parentNode.querySelector('thead tr');
+    // usuń stare nagłówki pasażerów
+    Array.from(thRow.querySelectorAll('.passengerCol')).forEach(el=>el.remove());
+    passengerIds.forEach((pid,idx)=>{
+      const th=document.createElement('th');
+      th.textContent=idx+1;
+      th.classList.add('passengerCol');
+      thRow.appendChild(th);
     });
 
-    usersBody.innerHTML='';
+    // wiersze kierowców
     Object.entries(usersData).forEach(([id,u])=>{
       const tr=document.createElement('tr');
-      const colorCell=u.color? `<td style="background-color:${u.color}"></td>` : '<td></td>';
-      tr.innerHTML=`<td>${id}</td>${colorCell}<td>${u.role||''}</td><td>${u.start||''}</td><td>${u.end||''}</td>`;
-      passengerIds.forEach(pid=>{
-        let val=''; if(u.role==='driver' && usersData[pid] && usersData[pid].acceptedBy===id) val='✅';
-        tr.innerHTML+=`<td>${val}</td>`;
-      });
-      usersBody.appendChild(tr);
+      let colorBox='';
+      if(u.role==='driver' && u.color){
+        colorBox=`<span class="driverColorBox" style="background-color:${u.color}"></span>`;
+      }
+      let cells = `<td>${id.slice(0,6)}</td><td>${u.role||''}</td><td>${colorBox}</td><td>${u.start||''}</td><td>${u.end||''}</td>`;
+      if(u.role==='driver'){
+        passengerIds.forEach(pid=>{
+          const p=usersData[pid];
+          let val='';
+          if(p && p.start && p.end){
+            const dCells=getRouteCells(parseCell(u.start),parseCell(u.end));
+            const pCells=getRouteCells(parseCell(p.start),parseCell(p.end));
+            if(getSharedCells(dCells,pCells).length>0) val='✓';
+          }
+          cells+=`<td>${val}</td>`;
+        });
+      } else {
+        const driverCount=Object.entries(usersData).filter(([id,u])=>u.role==='driver').length;
+        cells+=`<td colspan="${driverCount}"></td>`;
+      }
+      tr.innerHTML=cells;
+      usersTableBody.appendChild(tr);
     });
   }
 
