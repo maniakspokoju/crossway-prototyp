@@ -37,15 +37,18 @@
 </table>
 
 <script>
-// Firebase config
-const firebaseConfig = {
-  apiKey: "<API_KEY>",
-  authDomain: "<PROJECT_ID>.firebaseapp.com",
-  databaseURL: "<DATABASE_URL>",
-  projectId: "<PROJECT_ID>",
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+  // ====== CONFIG FIREBASE ======
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "crossway-prototyp",
+    storageBucket: "YOUR_BUCKET",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+  const app = firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
 // Global vars
 let userId = 'user_' + Math.random().toString(36).substr(2, 5);
