@@ -2,194 +2,139 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8" />
-<title>CROSSWAY</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crossway – prototyp</title>
 
 <link
   rel="stylesheet"
   href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 />
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
 <style>
-body {
+html, body {
   margin: 0;
+  height: 100%;
+  background: #111;
+  color: #fff;
   font-family: sans-serif;
 }
+
 #map {
-  height: 70vh;
+  height: 100%;
 }
-#panel {
+
+.panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: #1e1e1e;
   padding: 10px;
+  border-radius: 8px;
+  z-index: 1000;
 }
+
 button {
-  padding: 10px;
-  margin: 5px;
-}
-.driver {
-  background: #d0eaff;
-}
-.passenger {
-  background: #d0ffd8;
-}
-.disabled {
-  opacity: 0.4;
-  pointer-events: none;
+  display: block;
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  width: 120px;
 }
 </style>
 </head>
 
 <body>
 
+<div class="panel">
+  <button id="driverBtn">Kierowca</button>
+  <button id="passengerBtn">Pasażer</button>
+</div>
+
 <div id="map"></div>
 
-<div id="panel">
-  <button id="driverBtn">DRIVER</button>
-  <button id="passengerBtn">PASSENGER</button>
-  <br>
-  <button id="setStartBtn" class="disabled">SET START</button>
-  <button id="setDestBtn" class="disabled">SET DEST</button>
-  <br>
-  <button id="acceptBtn" class="disabled">ACCEPT</button>
-</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
 <script>
 /* ================= FIREBASE ================= */
 firebase.initializeApp({
-  apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
   databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
 });
 const db = firebase.database();
 
-/* ================= USER ================= */
-let userId = localStorage.getItem("crossway_userId");
-if (!userId) {
-  userId = crypto.randomUUID();
-  localStorage.setItem("crossway_userId", userId);
-}
-console.log("USER:", userId);
+/* ================= MAP ================= */
+const map = L.map("map").setView([52.12, 19.95], 10);
 
-const userRef = db.ref("users/" + userId);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19
+}).addTo(map);
 
 /* ================= STATE ================= */
 let currentRole = null;
-let picking = null;
-let myRoute = null;
+let routeLayer = null;
 
-/* ================= MAP ================= */
-const map = L.map("map").setView([52.1, 19.9], 11);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-
-const startMarker = L.marker([0, 0]);
-const destMarker = L.marker([0, 0]);
-const routeLayer = L.geoJSON().addTo(map);
-
-/* ================= UI ================= */
-const driverBtn = document.getElementById("driverBtn");
-const passengerBtn = document.getElementById("passengerBtn");
-const setStartBtn = document.getElementById("setStartBtn");
-const setDestBtn = document.getElementById("setDestBtn");
-const acceptBtn = document.getElementById("acceptBtn");
+/* ================= MARKERS ================= */
+const driverMarker = L.marker([0,0]);
+const passengerMarker = L.marker([0,0]);
 
 /* ================= ROLE ================= */
 function assignRole(role) {
-  if (currentRole) return;
+  if (currentRole) return; // ❗ BLOKADA zmiany roli
 
   currentRole = role;
-  document.body.className = role;
-  driverBtn.classList.add("disabled");
-  passengerBtn.classList.add("disabled");
 
-  setStartBtn.classList.remove("disabled");
-  setDestBtn.classList.remove("disabled");
-
-  userRef.set({
-    role,
-    active: true
-  });
+  document.body.style.background =
+    role === "driver" ? "#102020" : "#201020";
 
   navigator.geolocation.getCurrentPosition(pos => {
-    const loc = {
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude
-    };
-    userRef.child("start").set(loc);
-    startMarker.setLatLng([loc.lat, loc.lng]).addTo(map);
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    db.ref("session/" + role + "/currentLocation").set({ latitude: lat, longitude: lng });
+    db.ref("session/" + role + "/role").set(role);
+
+    const marker = role === "driver" ? driverMarker : passengerMarker;
+    marker.setLatLng([lat, lng]).addTo(map);
+
+    map.setView([lat, lng], 13);
   });
 }
 
+/* ================= ROUTE ================= */
+function drawRoute(a, b) {
+  if (routeLayer) map.removeLayer(routeLayer);
+
+  fetch(
+    `https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`
+  )
+  .then(r => r.json())
+  .then(data => {
+    routeLayer = L.geoJSON(data.routes[0].geometry, {
+      style: { weight: 5 }
+    }).addTo(map);
+  })
+  .catch(() => console.warn("OSRM timeout"));
+}
+
+/* ================= DB LISTENERS ================= */
+db.ref("session").on("value", snap => {
+  const s = snap.val();
+  if (!s?.driver || !s?.passenger) return;
+
+  const d = s.driver.currentLocation;
+  const p = s.passenger.currentLocation;
+
+  driverMarker.setLatLng([d.latitude, d.longitude]).addTo(map);
+  passengerMarker.setLatLng([p.latitude, p.longitude]).addTo(map);
+
+  drawRoute(
+    { lat: d.latitude, lng: d.longitude },
+    { lat: p.latitude, lng: p.longitude }
+  );
+});
+
+/* ================= UI ================= */
 driverBtn.onclick = () => assignRole("driver");
 passengerBtn.onclick = () => assignRole("passenger");
-
-/* ================= PICK POINTS ================= */
-setStartBtn.onclick = () => picking = "start";
-setDestBtn.onclick = () => picking = "dest";
-
-map.on("click", e => {
-  if (!picking) return;
-
-  const point = { lat: e.latlng.lat, lng: e.latlng.lng };
-  userRef.child(picking).set(point);
-
-  if (picking === "start") startMarker.setLatLng([point.lat, point.lng]).addTo(map);
-  if (picking === "dest") destMarker.setLatLng([point.lat, point.lng]).addTo(map);
-
-  picking = null;
-});
-
-/* ================= ROUTING ================= */
-function calculateRoute(start, dest) {
-  const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
-
-  fetch(url)
-    .then(r => r.json())
-    .then(data => {
-      if (!data.routes) return;
-      myRoute = data.routes[0].geometry;
-      userRef.child("route").set(myRoute);
-    })
-    .catch(() => {});
-}
-
-/* ================= WATCH MY DATA ================= */
-userRef.on("value", snap => {
-  const d = snap.val();
-  if (!d || !d.start || !d.dest) return;
-
-  calculateRoute(d.start, d.dest);
-});
-
-/* ================= DRAW ALL ROUTES ================= */
-db.ref("users").on("value", snap => {
-  routeLayer.clearLayers();
-
-  snap.forEach(u => {
-    const data = u.val();
-    if (!data.route) return;
-
-    L.geoJSON(data.route, {
-      style: {
-        color: data.role === "driver" ? "blue" : "green",
-        weight: 4
-      }
-    }).addTo(routeLayer);
-  });
-});
-
-/* ================= ACCEPT ================= */
-db.ref("users").on("value", snap => {
-  let routes = [];
-  snap.forEach(u => {
-    if (u.val().route) routes.push(u.val().route);
-  });
-
-  if (routes.length >= 2) {
-    acceptBtn.classList.remove("disabled");
-  }
-});
 </script>
 
 </body>
