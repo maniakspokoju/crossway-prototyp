@@ -2,139 +2,258 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8" />
-<title>Crossway – prototyp</title>
-
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-/>
+<title>CROSSWAY – GRID TEST</title>
 
 <style>
-html, body {
-  margin: 0;
-  height: 100%;
-  background: #111;
-  color: #fff;
-  font-family: sans-serif;
-}
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #222;
+    color: #fff;
+  }
 
-#map {
-  height: 100%;
-}
+  body.driver { background: #1f3a5f; }
+  body.passenger { background: #3a1f3a; }
 
-.panel {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background: #1e1e1e;
-  padding: 10px;
-  border-radius: 8px;
-  z-index: 1000;
-}
+  #top {
+    padding: 10px;
+    display: flex;
+    gap: 10px;
+  }
 
-button {
-  display: block;
-  margin-bottom: 6px;
-  padding: 6px 10px;
-  width: 120px;
-}
+  button {
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  button.active {
+    outline: 3px solid yellow;
+  }
+
+  #main {
+    display: flex;
+    gap: 20px;
+    padding: 10px;
+  }
+
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(9, 40px);
+    grid-template-rows: repeat(9, 40px);
+    gap: 2px;
+  }
+
+  .cell {
+    background: #444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .label {
+    background: #111;
+    font-weight: bold;
+  }
+
+  .start { background: #2ecc71; }
+  .end { background: #e74c3c; }
+  .route { background: #3498db; }
+  .overlap { background: #f1c40f; }
+
+  table {
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  td, th {
+    border: 1px solid #555;
+    padding: 4px 6px;
+  }
 </style>
 </head>
 
 <body>
 
-<div class="panel">
-  <button id="driverBtn">Kierowca</button>
-  <button id="passengerBtn">Pasażer</button>
+<div id="top">
+  <button id="driverBtn">DRIVER</button>
+  <button id="passengerBtn">PASSENGER</button>
 </div>
 
-<div id="map"></div>
+<div id="main">
+  <div id="grid"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <div>
+    <h3>Użytkownicy</h3>
+    <table id="usersTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Rola</th>
+          <th>Start</th>
+          <th>Cel</th>
+          <th>Match</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
 
 <script>
-/* ================= FIREBASE ================= */
-firebase.initializeApp({
-  databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
-});
-const db = firebase.database();
-
-/* ================= MAP ================= */
-const map = L.map("map").setView([52.12, 19.95], 10);
-
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19
-}).addTo(map);
-
 /* ================= STATE ================= */
-let currentRole = null;
-let routeLayer = null;
 
-/* ================= MARKERS ================= */
-const driverMarker = L.marker([0,0]);
-const passengerMarker = L.marker([0,0]);
+const userId = Math.random().toString(36).slice(2, 8);
+let role = null;
+let phase = "start"; // start | end
+
+const users = {};
+users[userId] = { id: userId };
+
+/* ================= UI ================= */
+
+const driverBtn = document.getElementById("driverBtn");
+const passengerBtn = document.getElementById("passengerBtn");
+const grid = document.getElementById("grid");
+const tableBody = document.querySelector("#usersTable tbody");
 
 /* ================= ROLE ================= */
-function assignRole(role) {
-  if (currentRole) return; // ❗ BLOKADA zmiany roli
 
-  currentRole = role;
+driverBtn.onclick = () => setRole("driver");
+passengerBtn.onclick = () => setRole("passenger");
 
-  document.body.style.background =
-    role === "driver" ? "#102020" : "#201020";
+function setRole(r) {
+  if (role) return; // BLOKADA zmiany roli
+  role = r;
+  users[userId].role = r;
 
-  navigator.geolocation.getCurrentPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
+  document.body.className = r;
+  driverBtn.classList.toggle("active", r === "driver");
+  passengerBtn.classList.toggle("active", r === "passenger");
+}
 
-    db.ref("session/" + role + "/currentLocation").set({ latitude: lat, longitude: lng });
-    db.ref("session/" + role + "/role").set(role);
+/* ================= GRID ================= */
 
-    const marker = role === "driver" ? driverMarker : passengerMarker;
-    marker.setLatLng([lat, lng]).addTo(map);
+const letters = ["", "A","B","C","D","E","F","G","H"];
 
-    map.setView([lat, lng], 13);
+function buildGrid() {
+  grid.innerHTML = "";
+
+  for (let y = 8; y >= 0; y--) {
+    for (let x = 0; x <= 8; x++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+
+      if (y === 0 && x === 0) cell.classList.add("label");
+      else if (y === 0) {
+        cell.textContent = letters[x];
+        cell.classList.add("label");
+      }
+      else if (x === 0) {
+        cell.textContent = y;
+        cell.classList.add("label");
+      }
+      else {
+        const pos = letters[x] + y;
+        cell.dataset.pos = pos;
+        cell.onclick = () => onCellClick(pos);
+      }
+
+      grid.appendChild(cell);
+    }
+  }
+}
+
+buildGrid();
+
+/* ================= CLICK LOGIC ================= */
+
+function onCellClick(pos) {
+  if (!role) return;
+
+  if (phase === "start") {
+    users[userId].start = pos;
+    phase = "end";
+  } else {
+    if (!validLine(users[userId].start, pos)) return alert("Tylko linia prosta!");
+    users[userId].end = pos;
+    users[userId].route = buildRoute(users[userId].start, pos);
+    phase = "done";
+  }
+
+  render();
+}
+
+/* ================= ROUTES ================= */
+
+function validLine(a, b) {
+  return a[0] === b[0] || a[1] === b[1];
+}
+
+function buildRoute(a, b) {
+  const route = [];
+  const colA = a[0], colB = b[0];
+  const rowA = +a[1], rowB = +b[1];
+
+  if (colA === colB) {
+    const [min, max] = [rowA, rowB].sort((a,b)=>a-b);
+    for (let r = min; r <= max; r++) route.push(colA + r);
+  } else {
+    const [min, max] = [colA.charCodeAt(0), colB.charCodeAt(0)].sort((a,b)=>a-b);
+    for (let c = min; c <= max; c++) route.push(String.fromCharCode(c) + rowA);
+  }
+  return route;
+}
+
+/* ================= MATCH ================= */
+
+function checkMatch(passenger, driver) {
+  if (!driver.route || !passenger.start) return false;
+  return driver.route.includes(passenger.start);
+}
+
+/* ================= RENDER ================= */
+
+function render() {
+  document.querySelectorAll(".cell").forEach(c => {
+    c.classList.remove("start","end","route","overlap");
+  });
+
+  Object.values(users).forEach(u => {
+    if (!u.route) return;
+    u.route.forEach(p => mark(p, "route"));
+    mark(u.start, "start");
+    mark(u.end, "end");
+  });
+
+  tableBody.innerHTML = "";
+  Object.values(users).forEach(u => {
+    let match = "";
+    if (u.role === "passenger") {
+      match = Object.values(users)
+        .filter(x => x.role === "driver" && checkMatch(u,x))
+        .map(x => x.id)
+        .join(",");
+    }
+
+    tableBody.innerHTML += `
+      <tr>
+        <td>${u.id}</td>
+        <td>${u.role || ""}</td>
+        <td>${u.start || ""}</td>
+        <td>${u.end || ""}</td>
+        <td>${match}</td>
+      </tr>`;
   });
 }
 
-/* ================= ROUTE ================= */
-function drawRoute(a, b) {
-  if (routeLayer) map.removeLayer(routeLayer);
-
-  fetch(
-    `https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`
-  )
-  .then(r => r.json())
-  .then(data => {
-    routeLayer = L.geoJSON(data.routes[0].geometry, {
-      style: { weight: 5 }
-    }).addTo(map);
-  })
-  .catch(() => console.warn("OSRM timeout"));
+function mark(pos, cls) {
+  const cell = [...document.querySelectorAll(".cell")]
+    .find(c => c.dataset.pos === pos);
+  if (cell) cell.classList.add(cls);
 }
-
-/* ================= DB LISTENERS ================= */
-db.ref("session").on("value", snap => {
-  const s = snap.val();
-  if (!s?.driver || !s?.passenger) return;
-
-  const d = s.driver.currentLocation;
-  const p = s.passenger.currentLocation;
-
-  driverMarker.setLatLng([d.latitude, d.longitude]).addTo(map);
-  passengerMarker.setLatLng([p.latitude, p.longitude]).addTo(map);
-
-  drawRoute(
-    { lat: d.latitude, lng: d.longitude },
-    { lat: p.latitude, lng: p.longitude }
-  );
-});
-
-/* ================= UI ================= */
-driverBtn.onclick = () => assignRole("driver");
-passengerBtn.onclick = () => assignRole("passenger");
 </script>
 
 </body>
