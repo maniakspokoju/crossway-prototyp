@@ -21,7 +21,7 @@
 </head>
 <body>
 
-<h1>Crossway – Szachownica 2</h1>
+<h1>Crossway – Szachownica</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -53,14 +53,18 @@
 </table>
 
 <script>
-// ===== FIREBASE =====
-firebase.initializeApp({
- apiKey:"AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
- databaseURL:"https://crossway-prototyp-default-rtdb.europe-west1.firebasedataba
-});
-const db = firebase.database();
-const userRef = db.ref("users/" + userId);
-
+  // ====== CONFIG FIREBASE ======
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    databaseURL: "https://crossway-prototyp-default-rtdb.firebaseio.com",
+    projectId: "crossway-prototyp",
+    storageBucket: "YOUR_BUCKET",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+  const app = firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
   // ====== STANY ======
   const ROWS = 8, COLS = 8;
