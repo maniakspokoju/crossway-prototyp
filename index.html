@@ -89,6 +89,18 @@ html, body {
   width: 95%;
 }
 
+#passengerControls button {
+  font-size: 24px;
+  padding: 15px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+#passengerControls button:active {
+  transform: scale(0.97);
+}
+
+
 </style>
 </head>
 
@@ -101,40 +113,23 @@ html, body {
 </div>
 
 <p id="role"></p>
-<button id="modeBtn" style="display:none;">Tryb A</button>
 
-<button id="acceptBtn" style="display:none; background:#ff5722; color:white;">
-  Akceptuj trasę
-</button>
+<!-- PANEL PASAŻERA -->
+<div id="passengerControls" style="display:none; margin-top:10px;">
+  <div style="display:flex; gap:10px; margin-bottom:10px;">
+    <button id="modeBtn" style="flex:5;">Tryb A</button>
+    <button id="acceptBtn" style="flex:8; background:#ff5722; color:white;">Akceptuj trasę</button>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <button id="saveDestinationBtn" style="flex:1;">Edytuj cel</button>
+    <button id="saveStartBtn" style="flex:1;">Edytuj start</button>
+  </div>
+</div>
 
 
 <div id="driverDestinationDiv">
-
-<!-- <input id="driverDestLat" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
-<!-- <input id="driverDestLng" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
-
 <button id="saveDriverDestinationBtn">Edytuj cel</button>
 </div>
-
-
-
-<!-- PANEL KONTROLI PASAŻERA -->
-<div id="passengerControls" style="display:none; margin-top:15px; width:100%;">
-
-  <!-- ===== PIERWSZY WIERSZ ===== -->
-  <div style="display:flex; width:100%; margin-bottom:10px;">
-    <button id="modeBtn" style="flex:5; margin-right:5px;">Tryb A</button>
-    <button id="acceptBtn" style="flex:8; background:#ff5722; color:white;">Akceptuj trasę</button>
-  </div>
-
-  <!-- ===== DRUGI WIERSZ ===== -->
-  <div style="display:flex; width:100%;">
-    <button id="saveDestinationBtn" style="flex:1; margin-right:5px;">Edytuj cel</button>
-    <button id="saveStartBtn" style="flex:1;">Edytuj start</button>
-  </div>
-
-</div>
-
 
 
 
@@ -415,13 +410,11 @@ function assign(role) {
   modeBtn.style.display = role === "passenger" ? "inline-block" : "none";
 
   if (role === "driver") driverDestinationDiv.style.display = "block";
-  if (role === "passenger") passengerDestinationDiv.style.display = "block";
-  if (role === "passenger") passengerStartDiv.style.display = "block";
 
-  if (role === "passenger") {
-    modeBtn.style.display = "inline-block";
-    acceptBtn.style.display = "inline-block";
-  }
+if (role === "passenger") {
+  document.getElementById("passengerControls").style.display = "block";
+}
+
 
   // Odśwież dostępność guzika
   updateRoleAvailability();
