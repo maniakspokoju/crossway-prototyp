@@ -3,39 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Crossway</title>
+<title>Crossway 5.3</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <style>
-body {
-    font-family: sans-serif;
-    margin: 10px;
-    transition: background-color 0.3s ease;
-}
-#map { height: calc(100vh - 80px); margin-top: 20px; }
-#driverDestinationDiv, #passengerDestinationDiv { display: none; margin-top: 20px; }
-input { width: 120px; height: 50px; font-size: 22px; margin-right: 10px; text-align: center; }
-button { font-size: 26px; padding: 20px 30px; margin: 10px 5px; border-radius: 14px; border: none; cursor: pointer; }
-#driverBtn { background-color: #2f6fff; color: white; }
-#passengerBtn { background-color: #2fbf6f; color: white; }
+body { font-family: sans-serif; margin:0; transition: background-color 0.3s ease; }
+#map { height: calc(100vh - 80px); }
+#roleBar { display:flex; width:100%; }
+#roleBar button { width:50%; height:80px; font-size:28px; border-radius:0; cursor:pointer; }
+#driverBtn { background:#2f6fff; color:white; }
+#passengerBtn { background:#2fbf6f; color:white; }
 button:active { transform: scale(0.97); }
-#roleBar { display: flex; width: 100%; }
-#roleBar button { width: 50%; height: 80px; font-size: 28px; border-radius: 0; }
-#driverDestinationDiv button { width: 95%; }
-#passengerControls button { font-size: 24px; padding: 15px; border-radius: 12px; cursor: pointer; }
+#driverDestinationDiv, #passengerControls { display:none; margin:10px; }
+#passengerControls button { font-size:24px; padding:15px; border-radius:12px; cursor:pointer; }
 #passengerControls button:active { transform: scale(0.97); }
 </style>
 </head>
 <body>
-																<h1>Crossway 5.2.1</h1>
+<h1>Crossway 5.3</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
   <button id="passengerBtn">Passenger</button>
 </div>
 
-<p id="role"></p>
-
-<div id="passengerControls" style="display:none; margin-top:10px;">
+<div id="passengerControls">
   <div style="display:flex; gap:10px; margin-bottom:10px;">
     <button id="modeBtn" style="flex:5;">Tryb A</button>
     <button id="acceptBtn" style="flex:8; background:#ff5722; color:white;">Akceptuj trasę</button>
@@ -50,11 +41,6 @@ button:active { transform: scale(0.97); }
   <button id="saveDriverDestinationBtn">Edytuj cel</button>
 </div>
 
-<div id="savedLocations" style="margin-top:10px; font-weight:bold;">
-  <p id="driverSavedInfo" style="color:#2f6fff;"></p>
-  <p id="passengerSavedInfo" style="color:#2fbf6f;"></p>
-</div>
-
 <div id="map"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -62,7 +48,12 @@ button:active { transform: scale(0.97); }
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-// ======= ELEMENTY DOM =======
+// ===== USER ID =====
+let userId = localStorage.getItem("crossway_userId");
+if(!userId){ userId = crypto.randomUUID(); localStorage.setItem("crossway_userId", userId);}
+console.log("USER:", userId);
+
+// ===== DOM ELEMENTS =====
 const driverBtn = document.getElementById("driverBtn");
 const passengerBtn = document.getElementById("passengerBtn");
 const modeBtn = document.getElementById("modeBtn");
@@ -71,57 +62,52 @@ const saveDestinationBtn = document.getElementById("saveDestinationBtn");
 const saveStartBtn = document.getElementById("saveStartBtn");
 const saveDriverDestinationBtn = document.getElementById("saveDriverDestinationBtn");
 
-// ======= USER ID =======
-let userId = localStorage.getItem("crossway_userId");
-if (!userId) {
-  userId = crypto.randomUUID();
-  localStorage.setItem("crossway_userId", userId);
-}
-console.log("USER:", userId);
-
-// ======= FIREBASE =======
+// ===== FIREBASE =====
 firebase.initializeApp({
-  apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
-  databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
+  apiKey:"AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
+  databaseURL:"https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
 });
 const db = firebase.database();
 const userRef = db.ref("users/" + userId);
 
-// ======= GLOBALNE ZMIENNE =======
-let currentRole = null; // "driver" | "passenger"
+let currentRole = null;
 let currentMode = "A";
 let accepted = false;
 let acceptLocked = false;
 
-let editingDriverDestination = false;
-let editingPassengerDestination = false;
-let editingPassengerStart = false;
-let selectedPoint = null;
-
-// ======= MAPA =======
-const map = L.map("map").setView([52.1, 19.9], 12);
+// ===== MAPA =====
+const map = L.map("map").setView([52.1,19.9],12);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-const driverLine = L.polyline([], { color: "blue", weight: 5 }).addTo(map);
-const passengerLine = L.polyline([], { color: "green", weight: 5 }).addTo(map);
-const overlapLine = L.polyline([], { color: "red", weight: 7 }).addTo(map);
+const driverLine = L.polyline([], { color:"blue", weight:5 }).addTo(map);
+const passengerLine = L.polyline([], { color:"green", weight:5 }).addTo(map);
+const overlapLine = L.polyline([], { color:"red", weight:7 }).addTo(map);
 
-const iconK = L.divIcon({ html:"<div style='font-size:26px;font-weight:bold;color:#2f6fff'>K</div>", className:"", iconSize:[30,30], iconAnchor:[15,15]});
-const iconP = L.divIcon({ html:"<div style='font-size:26px;font-weight:bold;color:#2fbf6f'>P</div>", className:"", iconSize:[30,30], iconAnchor:[15,15]});
+const iconK = L.divIcon({html:"<div style='font-size:26px;font-weight:bold;color:#2f6fff'>K</div>", className:"", iconSize:[30,30], iconAnchor:[15,15]});
+const iconP = L.divIcon({html:"<div style='font-size:26px;font-weight:bold;color:#2fbf6f'>P</div>", className:"", iconSize:[30,30], iconAnchor:[15,15]});
 
-const driverStartMarker = L.marker([0,0], { icon: iconK }).addTo(map);
-const passengerStartMarker = L.marker([0,0], { icon: iconP }).addTo(map);
+const driverStartMarker = L.marker([0,0], {icon:iconK}).addTo(map);
+const passengerStartMarker = L.marker([0,0], {icon:iconP}).addTo(map);
 const driverEndMarker = L.marker([0,0]).addTo(map);
 const passengerEndMarker = L.marker([0,0]).addTo(map);
 
-// ======= UTILS =======
+let editingDriverDestination = false, editingPassengerDestination=false, editingPassengerStart=false;
+let selectedPoint = null;
 const TOLERANCE_METERS = 60;
-function distanceMeters(a,b){ const R=6371000; const dLat=(b[0]-a[0])*Math.PI/180; const dLng=(b[1]-a[1])*Math.PI/180; const x=dLng*Math.cos((a[0]+b[0])/2*Math.PI/180); return Math.sqrt(dLat*dLat + x*x)*R; }
-function findClosestIndex(point,path){ let min=Infinity,idx=-1; path.forEach((p,i)=>{const d=distanceMeters(point,p); if(d<min){min=d; idx=i;}}); return min<=TOLERANCE_METERS?idx:-1; }
-async function route(a,b){ const url=`https://router.project-osrm.org/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`; const r=await fetch(url).then(r=>r.json()); return r.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]); }
 
-// ======= OBSŁUGA MAPY =======
-map.on('click', e=>{
+function distanceMeters(a,b){
+  const R=6371000; const dLat=(b[0]-a[0])*Math.PI/180; const dLng=(b[1]-a[1])*Math.PI/180;
+  const x=dLng*Math.cos((a[0]+b[0])/2*Math.PI/180);
+  return Math.sqrt(dLat*dLat + x*x)*R;
+}
+
+function findClosestIndex(point,path){
+  let min=Infinity, idx=-1;
+  path.forEach((p,i)=>{ const d=distanceMeters(point,p); if(d<min){min=d; idx=i;}});
+  return min<=TOLERANCE_METERS ? idx : -1;
+}
+
+map.on('click', function(e){
   if(!editingDriverDestination && !editingPassengerDestination && !editingPassengerStart) return;
   selectedPoint=[e.latlng.lat,e.latlng.lng];
   if(editingDriverDestination) driverEndMarker.setLatLng(selectedPoint);
@@ -129,90 +115,140 @@ map.on('click', e=>{
   if(editingPassengerStart) passengerStartMarker.setLatLng(selectedPoint);
 });
 
-// ======= FUNKCJE RÓL =======
-function assign(role){
-  const firstTimeChoosing = !currentRole;
-  if(firstTimeChoosing) currentRole=role;
+// ===== OSRM =====
+async function route(a,b){
+  const url=`https://router.project-osrm.org/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`;
+  const r = await fetch(url).then(r=>r.json());
+  return r.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+}
 
+// ===== FUNKCJE UI =====
+function setBackgroundFromRole(){
+  if(currentRole==="driver") document.body.style.backgroundColor="#2f6fff";
+  else if(currentRole==="passenger") document.body.style.backgroundColor="#2fbf6f";
+  else document.body.style.backgroundColor="white";
+}
+
+function updateUI(){
+  setBackgroundFromRole();
+  document.getElementById("passengerControls").style.display = currentRole==="passenger" ? "block" : "none";
+  document.getElementById("driverDestinationDiv").style.display = currentRole==="driver" ? "block" : "none";
+}
+
+// ===== ROLE =====
+function assign(role){
+  if(currentRole) return; // nie zmieniaj roli w trakcie
+  currentRole=role;
+
+  // zapis roli w Firebase
   userRef.child("role").set(role);
 
   navigator.geolocation.getCurrentPosition(p=>{
-    const lat=p.coords.latitude, lng=p.coords.longitude;
-    userRef.child("currentLocation").set({ latitude: lat, longitude: lng });
-
+    const lat=p.coords.latitude;
+    const lng=p.coords.longitude;
+    userRef.child("currentLocation").set({latitude:lat,longitude:lng});
     if(role==="driver") driverStartMarker.setLatLng([lat,lng]);
     if(role==="passenger") passengerStartMarker.setLatLng([lat,lng]);
   });
 
-  modeBtn.style.display = role==="passenger"?"inline-block":"none";
-  if(role==="driver") document.getElementById("driverDestinationDiv").style.display="block";
-  if(role==="passenger") document.getElementById("passengerControls").style.display="block";
-
-  db.ref("users").once("value").then(snapshot=>{
-    const users=snapshot.val()||{};
-    let drivers=[],passengers=[];
-    for(const [id,u] of Object.entries(users)){
-      if(u.role==="driver") drivers.push({id,...u});
-      if(u.role==="passenger") passengers.push({id,...u});
-    }
-    updateRoleButtons(drivers,passengers);
-  });
+  updateUI();
 }
 
-function updateRoleButtons(drivers, passengers){
-  const iAmDriver=drivers.some(d=>d.id===userId);
-  driverBtn.disabled=iAmDriver||drivers.length>=4;
-  driverBtn.style.opacity=driverBtn.disabled?"0.4":"1";
-  driverBtn.innerText=iAmDriver?"Jesteś Driver":"Driver";
-
-  const iAmPassenger=passengers.some(p=>p.id===userId);
-  passengerBtn.disabled=iAmPassenger;
-  passengerBtn.style.opacity=passengerBtn.disabled?"0.4":"1";
-  passengerBtn.innerText=iAmPassenger?"Jesteś Passenger":"Passenger";
-}
-
+// ===== AKTUALIZACJA GUZIKÓW =====
 function updateRoleAvailability(){
-  db.ref("users").on("value", snapshot=>{
-    const users=snapshot.val()||{};
-    let drivers=[],passengers=[];
+  db.ref("users").on("value", snap=>{
+    const users = snap.val() || {};
+    let drivers=[], passengers=[];
     for(const [id,u] of Object.entries(users)){
       if(u.role==="driver") drivers.push({id,...u});
       if(u.role==="passenger") passengers.push({id,...u});
     }
-    updateRoleButtons(drivers,passengers);
+
+    // DRIVER
+    const iAmDriver = drivers.some(d=>d.id===userId);
+    driverBtn.disabled = iAmDriver || drivers.length>=4;
+    driverBtn.style.opacity = driverBtn.disabled?"0.4":"1";
+    driverBtn.innerText = iAmDriver?"Jesteś Driver":"Driver";
+
+    // PASSENGER
+    const iAmPassenger = passengers.some(p=>p.id===userId);
+    passengerBtn.disabled = iAmPassenger;
+    passengerBtn.style.opacity = passengerBtn.disabled?"0.4":"1";
+    passengerBtn.innerText = iAmPassenger?"Jesteś Passenger":"Passenger";
   });
 }
 
-// ======= EVENTY =======
-driverBtn.onclick=()=>{ assign("driver"); };
-passengerBtn.onclick=()=>{ assign("passenger"); };
+// ===== MAIN UPDATE =====
+async function update(){
+  driverLine.setLatLngs([]);
+  passengerLine.setLatLngs([]);
+  overlapLine.setLatLngs([]);
 
-saveDriverDestinationBtn.onclick=()=>{
-  if(!editingDriverDestination){ editingDriverDestination=true; saveDriverDestinationBtn.innerText="Zapisz cel"; return; }
-  if(selectedPoint) db.ref("session/driver/destination").set({ latitude:selectedPoint[0], longitude:selectedPoint[1] });
-  editingDriverDestination=false; saveDriverDestinationBtn.innerText="Edytuj cel"; selectedPoint=null;
-};
+  const usersSnap = await db.ref("users").once("value");
+  const users = usersSnap.val() || {};
 
-saveDestinationBtn.onclick=()=>{
-  if(!editingPassengerDestination){ editingPassengerDestination=true; saveDestinationBtn.innerText="Zapisz cel"; return; }
-  if(selectedPoint) db.ref("session/passenger/destination").set({ latitude:selectedPoint[0], longitude:selectedPoint[1] });
-  editingPassengerDestination=false; saveDestinationBtn.innerText="Edytuj cel"; selectedPoint=null;
-};
+  let driverData=null, passengerData=null;
+  for(const [id,u] of Object.entries(users)){
+    if(u.role==="driver") driverData=u;
+    if(u.role==="passenger") passengerData=u;
+  }
 
-saveStartBtn.onclick=()=>{
-  if(!editingPassengerStart){ editingPassengerStart=true; saveStartBtn.innerText="Zapisz start"; return; }
-  if(selectedPoint) db.ref("session/passenger/currentLocation").set({ latitude:selectedPoint[0], longitude:selectedPoint[1] });
-  editingPassengerStart=false; saveStartBtn.innerText="Edytuj start"; selectedPoint=null;
-};
+  let dPath=null, pPath=null;
+  if(driverData?.currentLocation && driverData?.destination){
+    dPath = await route([driverData.currentLocation.latitude, driverData.currentLocation.longitude],
+                        [driverData.destination.latitude, driverData.destination.longitude]);
+    driverLine.setLatLngs(dPath);
+    if(dPath.length){ driverStartMarker.setLatLng(dPath[0]); driverEndMarker.setLatLng(dPath.at(-1)); }
+  }
+
+  if(passengerData?.currentLocation && passengerData?.destination){
+    pPath = await route([passengerData.currentLocation.latitude, passengerData.currentLocation.longitude],
+                        [passengerData.destination.latitude, passengerData.destination.longitude]);
+    passengerLine.setLatLngs(pPath);
+    if(pPath.length){ passengerStartMarker.setLatLng(pPath[0]); passengerEndMarker.setLatLng(pPath.at(-1)); }
+  }
+
+  // trasa wspólna
+  let overlapExists=false;
+  if(dPath && pPath){
+    const startIdx = findClosestIndex([passengerData.currentLocation.latitude, passengerData.currentLocation.longitude], dPath);
+    if(startIdx!==-1){
+      let endIdx = startIdx;
+      // tryb A = przecięcia
+      if(currentMode==="A"){
+        const hits=[];
+        dPath.forEach((dp,i)=>pPath.forEach(pp=>{ if(distanceMeters(dp,pp)<=TOLERANCE_METERS) hits.push(i); }));
+        const valid=[...new Set(hits)].filter(i=>i>=startIdx);
+        if(valid.length>=2) endIdx=Math.max(...valid);
+      }
+      // tryb B = optymalny
+      else{
+        let bestDist=Infinity;
+        for(let i=startIdx;i<dPath.length;i++){
+          const dist=distanceMeters(dPath[i],[passengerData.destination.latitude,passengerData.destination.longitude]);
+          if(dist<bestDist){bestDist=dist; endIdx=i;}
+        }
+      }
+      overlapLine.setLatLngs(dPath.slice(startIdx,endIdx+1));
+      overlapExists=true;
+    }
+  }
+
+  acceptBtn.disabled = !overlapExists || acceptLocked;
+  acceptBtn.style.opacity = acceptBtn.disabled?"0.4":"1";
+  updateUI();
+}
+
+// ===== BUTTONS =====
+driverBtn.onclick=()=>assign("driver");
+passengerBtn.onclick=()=>assign("passenger");
 
 modeBtn.onclick=()=>{
-  const newMode=currentMode==="A"?"B":"A";
+  const newMode = currentMode==="A"?"B":"A";
   db.ref("session/mode").set(newMode);
 };
-
-db.ref("session/mode").on("value", snap=>{
-  const mode=snap.val();
-  if(mode){ currentMode=mode; modeBtn.innerText="Tryb "+currentMode; }
+db.ref("session/mode").on("value",snap=>{
+  const mode=snap.val(); if(mode){ currentMode=mode; modeBtn.innerText="Tryb "+currentMode; update(); }
 });
 
 acceptBtn.onclick=()=>{
@@ -222,9 +258,28 @@ acceptBtn.onclick=()=>{
   acceptBtn.disabled=true; acceptBtn.style.opacity="0.4";
 };
 
-// ======= OBSŁUGA SESJI / AKTUALIZACJA =======
-db.ref("session").on("value", updateRoleAvailability);
+saveDriverDestinationBtn.onclick=()=>{
+  if(!editingDriverDestination){ editingDriverDestination=true; saveDriverDestinationBtn.innerText="Zapisz cel"; return; }
+  if(selectedPoint){ userRef.child("destination").set({latitude:selectedPoint[0],longitude:selectedPoint[1]}); }
+  editingDriverDestination=false; saveDriverDestinationBtn.innerText="Edytuj cel"; selectedPoint=null;
+};
 
+saveDestinationBtn.onclick=()=>{
+  if(!editingPassengerDestination){ editingPassengerDestination=true; saveDestinationBtn.innerText="Zapisz cel"; return; }
+  if(selectedPoint){ userRef.child("destination").set({latitude:selectedPoint[0],longitude:selectedPoint[1]}); }
+  editingPassengerDestination=false; saveDestinationBtn.innerText="Edytuj cel"; selectedPoint=null;
+};
+
+saveStartBtn.onclick=()=>{
+  if(!editingPassengerStart){ editingPassengerStart=true; saveStartBtn.innerText="Zapisz start"; return; }
+  if(selectedPoint){ userRef.child("currentLocation").set({latitude:selectedPoint[0],longitude:selectedPoint[1]}); }
+  editingPassengerStart=false; saveStartBtn.innerText="Edytuj start"; selectedPoint=null;
+};
+
+// ===== START =====
+updateRoleAvailability();
+update();
+setInterval(update,3000);
 </script>
 </body>
 </html>
