@@ -87,41 +87,28 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 4.0</h1>
+																<h1>Crossway – fundament 3.9</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
   <button id="passengerBtn">Passenger</button>
 </div>
 
-<p id="role"></p>
-<button id="modeBtn" style="display:none;">Tryb A</button>
+<div id="passengerControls" style="display:none; margin-top:10px; width:100%;">
+  <!-- Pierwszy rząd: Tryb A/B i Akceptuj trasę -->
+  <div style="display:flex; width:100%; margin-bottom:10px;">
+    <button id="modeBtn" style="flex:1; margin-right:5px;">Tryb A</button>
+    <button id="acceptBtn" style="flex:1; margin-left:5px; background:#ff5722; color:white;">
+      Akceptuj trasę
+    </button>
+  </div>
 
-<button id="acceptBtn" style="display:none; background:#ff5722; color:white;">
-  Akceptuj trasę
-</button>
-
-
-<div id="driverDestinationDiv">
-
-<!-- <input id="driverDestLat" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
-<!-- <input id="driverDestLng" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
-
-<button id="saveDriverDestinationBtn">Edytuj cel</button>
+  <!-- Drugi rząd: Edytuj cel i Edytuj start -->
+  <div style="display:flex; width:100%;">
+    <button id="saveDestinationBtn" style="flex:1; margin-right:5px;">Edytuj cel</button>
+    <button id="saveStartBtn" style="flex:1; margin-left:5px;">Edytuj start</button>
+  </div>
 </div>
-
-<!-- Rząd 1: Tryb A/B i Akceptuj trasę -->
-<div id="passengerControlsRow1" style="display:flex; width:100%; margin-top:10px;">
-  <button id="modeBtn" style="flex:1; margin-right:5px; display:none;">Tryb A</button>
-  <button id="acceptBtn" style="flex:1; margin-left:5px; display:none; background:#ff5722; color:white;">Akceptuj trasę</button>
-</div>
-
-<!-- Rząd 2: Edycja lokalizacji -->
-<div id="passengerControlsRow2" style="display:flex; width:100%; margin-top:10px;">
-  <button id="saveDestinationBtn" style="flex:1; margin-right:5px;">Edytuj cel</button>
-  <button id="saveStartBtn" style="flex:1; margin-left:5px;">Edytuj start</button>
-</div>
-
 
 <div id="savedLocations" style="margin-top:10px; font-weight:bold;">
   <p id="driverSavedInfo" style="color:#2f6fff;"></p>
@@ -392,13 +379,10 @@ function assign(role) {
   if (role === "passenger") passengerDestinationDiv.style.display = "block";
   if (role === "passenger") passengerStartDiv.style.display = "block";
 
-if (role === "passenger") {
-  modeBtn.style.display = "inline-block";
-  acceptBtn.style.display = "inline-block";
-  saveDestinationBtn.style.display = "inline-block";
-  saveStartBtn.style.display = "inline-block";
-}
-
+  if (role === "passenger") {
+    modeBtn.style.display = "inline-block";
+    acceptBtn.style.display = "inline-block";
+  }
 
   // Odśwież dostępność guzika
   updateRoleAvailability();
