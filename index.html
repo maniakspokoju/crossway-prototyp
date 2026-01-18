@@ -10,7 +10,9 @@
 body {
     font-family: sans-serif;
     margin: 10px;
+    transition: background-color 0.3s ease;
 }
+
 
 /* MAPA */
 #map {
@@ -87,7 +89,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 4.2</h1>
+																<h1>Crossway – fundament 4.3</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -175,6 +177,12 @@ let editingPassengerStart = false;
 
 // Zmienna przechowująca wybrany punkt z mapy
 let selectedPoint = null;
+
+function setBackgroundFromRoleButton(button) {
+  const color = getComputedStyle(button).backgroundColor;
+  document.body.style.backgroundColor = color;
+}
+
 
 
 /* ================= MAP ================= */
@@ -411,8 +419,16 @@ function assign(role) {
 
 
 
-driverBtn.onclick = ()=>assign("driver");
-passengerBtn.onclick = ()=>assign("passenger");
+driverBtn.onclick = () => {
+  setBackgroundFromRoleButton(driverBtn);
+  assign("driver");
+};
+
+passengerBtn.onclick = () => {
+  setBackgroundFromRoleButton(passengerBtn);
+  assign("passenger");
+};
+
 
 /* ================= BLOKADA RÓL ================= */
 
