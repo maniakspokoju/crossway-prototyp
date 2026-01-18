@@ -105,7 +105,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway 5.2</h1>
+																<h1>Crossway 5.3</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -389,7 +389,6 @@ if (!acceptLocked) {
 
 db.ref("session").on("value", () => {
   update();
-  updateRoleAvailability();
 });
 
 
@@ -470,45 +469,46 @@ function updateRoleButtons(drivers, passengers) {
 /* ================= BLOKADA RÓL ================= */
 
 function updateRoleAvailability() {
-// nasłuchiwanie zmian wszystkich użytkowników
-db.ref("users").on("value", snapshot => {
-  const users = snapshot.val() || {};
+  // nasłuchiwanie zmian wszystkich użytkowników
+  db.ref("users").on("value", snapshot => {
+    const users = snapshot.val() || {};
 
-  let drivers = [];
-  let passengers = [];
+    let drivers = [];
+    let passengers = [];
 
-  for (const [id, u] of Object.entries(users)) {
-    if (u.role === "driver") drivers.push({ id, ...u });
-    if (u.role === "passenger") passengers.push({ id, ...u });
-  }
-
-  updateRoleButtons(drivers, passengers);
-});
-
-
-    // DRIVER
-    if ((data.driver && data.driver.role === "driver") || currentRole) {
-      driverBtn.disabled = true;
-      driverBtn.style.opacity = "0.4";
-      driverBtn.innerText = "Driver zajęty";
-    } else {
-      driverBtn.disabled = false;
-      driverBtn.style.opacity = "1";
-      driverBtn.innerText = "Driver";
+    for (const [id, u] of Object.entries(users)) {
+      if (u.role === "driver") drivers.push({ id, ...u });
+      if (u.role === "passenger") passengers.push({ id, ...u });
     }
 
-    // PASSENGER
-    if ((data.passenger && data.passenger.role === "passenger") || currentRole) {
-      passengerBtn.disabled = true;
-      passengerBtn.style.opacity = "0.4";
-      passengerBtn.innerText = "Passenger zajęty";
-    } else {
-      passengerBtn.disabled = false;
-      passengerBtn.style.opacity = "1";
-      passengerBtn.innerText = "Passenger";
-    }
+    updateRoleButtons(drivers, passengers);
   });
 }
+
+
+
+// DRIVER
+if ((data.driver && data.driver.role === "driver") || currentRole) {
+  driverBtn.disabled = true;
+  driverBtn.style.opacity = "0.4";
+  driverBtn.innerText = "Driver zajęty";
+} else {
+  driverBtn.disabled = false;
+  driverBtn.style.opacity = "1";
+  driverBtn.innerText = "Driver";
+}
+
+// PASSENGER
+if ((data.passenger && data.passenger.role === "passenger") || currentRole) {
+  passengerBtn.disabled = true;
+  passengerBtn.style.opacity = "0.4";
+  passengerBtn.innerText = "Passenger zajęty";
+} else {
+  passengerBtn.disabled = false;
+  passengerBtn.style.opacity = "1";
+  passengerBtn.innerText = "Passenger";
+}
+
 
 
 
