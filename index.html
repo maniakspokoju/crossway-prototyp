@@ -87,7 +87,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.9</h1>
+																<h1>Crossway – fundament 3.8</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -379,10 +379,13 @@ function assign(role) {
   if (role === "passenger") passengerDestinationDiv.style.display = "block";
   if (role === "passenger") passengerStartDiv.style.display = "block";
 
-  if (role === "passenger") {
-    modeBtn.style.display = "inline-block";
-    acceptBtn.style.display = "inline-block";
-  }
+if (role === "passenger") {
+  modeBtn.style.display = "inline-block";
+  acceptBtn.style.display = "inline-block";
+  saveDestinationBtn.style.display = "inline-block";
+  saveStartBtn.style.display = "inline-block";
+}
+
 
   // Odśwież dostępność guzika
   updateRoleAvailability();
