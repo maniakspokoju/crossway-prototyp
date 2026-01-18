@@ -87,28 +87,47 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 3.8</h1>
+																<h1>Crossway – fundament 4.2</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
   <button id="passengerBtn">Passenger</button>
 </div>
 
-<div id="passengerControls" style="display:none; margin-top:10px; width:100%;">
-  <!-- Pierwszy rząd: Tryb A/B i Akceptuj trasę -->
-  <div style="display:flex; width:100%; margin-bottom:10px;">
-    <button id="modeBtn" style="flex:1; margin-right:5px;">Tryb A</button>
-    <button id="acceptBtn" style="flex:1; margin-left:5px; background:#ff5722; color:white;">
-      Akceptuj trasę
-    </button>
-  </div>
+<p id="role"></p>
+<button id="modeBtn" style="display:none;">Tryb A</button>
 
-  <!-- Drugi rząd: Edytuj cel i Edytuj start -->
-  <div style="display:flex; width:100%;">
-    <button id="saveDestinationBtn" style="flex:1; margin-right:5px;">Edytuj cel</button>
-    <button id="saveStartBtn" style="flex:1; margin-left:5px;">Edytuj start</button>
-  </div>
+<button id="acceptBtn" style="display:none; background:#ff5722; color:white;">
+  Akceptuj trasę
+</button>
+
+
+<div id="driverDestinationDiv">
+<h3>Cel kierowcy</h3>
+
+<!-- <input id="driverDestLat" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
+<!-- <input id="driverDestLng" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
+
+<button id="saveDriverDestinationBtn">Edytuj cel</button>
 </div>
+
+<div id="passengerDestinationDiv">
+<h3>Cel pasażera</h3>
+
+<!-- <input id="destLat" placeholder="###" step="1" inputmode="numeric"> -->			<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
+<!-- <input id="destLng" placeholder="###" step="1" inputmode="numeric"> -->			<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
+
+<button id="saveDestinationBtn">Edytuj cel</button>
+</div>
+
+<div id="passengerStartDiv" style="margin-top:15px; display:none;">
+  <h3>Start pasażera (zmiana dla testów)</h3>
+
+<!-- <input type="number" id="startLat" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
+<!-- <input type="number" id="startLng" placeholder="###" step="1" inputmode="numeric"> -->		<!-- tu są zakomentowane pola do wpisywania lokalizacji -->
+
+  <button id="saveStartBtn">Edytuj start</button>
+  </div>
 
 <div id="savedLocations" style="margin-top:10px; font-weight:bold;">
   <p id="driverSavedInfo" style="color:#2f6fff;"></p>
@@ -379,13 +398,10 @@ function assign(role) {
   if (role === "passenger") passengerDestinationDiv.style.display = "block";
   if (role === "passenger") passengerStartDiv.style.display = "block";
 
-if (role === "passenger") {
-  modeBtn.style.display = "inline-block";
-  acceptBtn.style.display = "inline-block";
-  saveDestinationBtn.style.display = "inline-block";
-  saveStartBtn.style.display = "inline-block";
-}
-
+  if (role === "passenger") {
+    modeBtn.style.display = "inline-block";
+    acceptBtn.style.display = "inline-block";
+  }
 
   // Odśwież dostępność guzika
   updateRoleAvailability();
