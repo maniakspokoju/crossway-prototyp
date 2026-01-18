@@ -105,7 +105,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway 5.1</h1>
+																<h1>Crossway 5.2</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -393,7 +393,6 @@ db.ref("session").on("value", () => {
 });
 
 
-/* ================= ROLE ================= */
 function assign(role) {
   const firstTimeChoosing = !currentRole; // pierwszy wybór
 
@@ -401,7 +400,7 @@ function assign(role) {
     currentRole = role;
 
     // Zapis roli w Firebase
-  userRef.child("role").set(role);
+    userRef.child("role").set(role);
   }
 
   // Pobranie aktualnej lokalizacji
@@ -410,11 +409,10 @@ function assign(role) {
     const lng = p.coords.longitude;
 
     // Zapis w Firebase
-  userRef.child("currentLocation").set({
-  latitude: lat,
-  longitude: lng
-});
-
+    userRef.child("currentLocation").set({
+      latitude: lat,
+      longitude: lng
+    });
 
     // 🔹 Ustawienie markera startowego od razu na mapie
     if (role === "driver") driverStartMarker.setLatLng([lat, lng]);
@@ -425,15 +423,20 @@ function assign(role) {
   modeBtn.style.display = role === "passenger" ? "inline-block" : "none";
 
   if (role === "driver") driverDestinationDiv.style.display = "block";
+  if (role === "passenger") document.getElementById("passengerControls").style.display = "block";
 
-if (role === "passenger") {
-  document.getElementById("passengerControls").style.display = "block";
+  // 🔹 aktualizacja przycisków ról dla wszystkich
+  db.ref("users").once("value").then(snapshot => {
+    const users = snapshot.val() || {};
+    let drivers = [], passengers = [];
+    for (const [id, u] of Object.entries(users)) {
+      if (u.role === "driver") drivers.push({ id, ...u });
+      if (u.role === "passenger") passengers.push({ id, ...u });
+    }
+    updateRoleButtons(drivers, passengers);
+  });
 }
 
-
-  // Odśwież dostępność guzika
-  updateRoleAvailability();
-}
 
 
 
@@ -449,12 +452,39 @@ passengerBtn.onclick = () => {
   assign("passenger");
 };
 
+function updateRoleButtons(drivers, passengers) {
+  // DRIVER
+  const iAmDriver = drivers.some(d => d.id === userId);
+  driverBtn.disabled = iAmDriver || drivers.length >= 4; // maks 4 kierowców
+  driverBtn.style.opacity = driverBtn.disabled ? "0.4" : "1";
+  driverBtn.innerText = iAmDriver ? "Jesteś Driver" : "Driver";
+
+  // PASSENGER
+  const iAmPassenger = passengers.some(p => p.id === userId);
+  passengerBtn.disabled = iAmPassenger;
+  passengerBtn.style.opacity = passengerBtn.disabled ? "0.4" : "1";
+  passengerBtn.innerText = iAmPassenger ? "Jesteś Passenger" : "Passenger";
+}
+
 
 /* ================= BLOKADA RÓL ================= */
 
 function updateRoleAvailability() {
-  db.ref("session").once("value").then(snapshot => {
-    const data = snapshot.val() || {};
+// nasłuchiwanie zmian wszystkich użytkowników
+db.ref("users").on("value", snapshot => {
+  const users = snapshot.val() || {};
+
+  let drivers = [];
+  let passengers = [];
+
+  for (const [id, u] of Object.entries(users)) {
+    if (u.role === "driver") drivers.push({ id, ...u });
+    if (u.role === "passenger") passengers.push({ id, ...u });
+  }
+
+  updateRoleButtons(drivers, passengers);
+});
+
 
     // DRIVER
     if ((data.driver && data.driver.role === "driver") || currentRole) {
