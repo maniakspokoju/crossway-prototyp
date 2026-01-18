@@ -2,38 +2,52 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Crossway Grid Test</title>
+<title>Crossway – Szachownica</title>
 <style>
   body { font-family: Arial, sans-serif; }
-  #controls { margin-bottom: 10px; }
-  button { margin: 2px; padding: 5px 10px; }
-  #board { border-collapse: collapse; margin-bottom: 20px; }
-  #board td { width: 40px; height: 40px; border: 1px solid #555; text-align: center; vertical-align: middle; }
-  #usersTable { border-collapse: collapse; margin-top: 10px; }
-  #usersTable td, #usersTable th { border: 1px solid #555; padding: 4px; }
+  #roleSelect { margin: 10px 0; }
+  #grid { border-collapse: collapse; margin: 20px 0; }
+  #grid td { width: 40px; height: 40px; border: 1px solid #aaa; text-align: center; vertical-align: middle; cursor: pointer; position: relative; }
+  .sharedCell { background-color: red !important; }
+  #usersTable { margin-top: 20px; border-collapse: collapse; width: 100%; }
+  #usersTable th, #usersTable td { border: 1px solid #000; padding: 5px; text-align: center; }
+  #controls { margin-top: 10px; }
+  .driverCell, .passengerCell { color: #000; font-weight: bold; }
 </style>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 </head>
 <body>
 
-<div id="controls">
-  <button id="btnDriver">Kierowca</button>
-  <button id="btnPassenger">Pasażer</button>
-  <button id="btnAccept" disabled>AKCEPTUJ</button>
-  <button id="btnNext" disabled>Dalej</button>
-  <button id="btnPrev" disabled>Cofnij</button>
-  <button id="btnReset">Zakończ przejazd</button>
+<h1>Crossway – Szachownica</h1>
+
+<div id="roleSelect">
+  <button id="driverBtn">Kierowca</button>
+  <button id="passengerBtn">Pasażer</button>
 </div>
 
-<table id="board"></table>
+<div id="controls">
+  <button id="prevDriverBtn">⬅ Cofnij</button>
+  <button id="nextDriverBtn">➡ Dalej</button>
+  <button id="acceptBtn">✅ Akceptuj</button>
+  <button id="resetBtn">🛑 Zakończ przejazd</button>
+</div>
 
-<h3>Użytkownicy:</h3>
+<table id="grid"></table>
+
+<h2>Użytkownicy / trasy</h2>
 <table id="usersTable">
-<thead>
-<tr><th>ID</th><th>Rola</th><th>Kolor</th><th>Start</th><th>Cel</th><th>Na trasie</th></tr>
-</thead>
-<tbody></tbody>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Kolor</th>
+      <th>Rola</th>
+      <th>Start</th>
+      <th>Cel</th>
+      <th>Na trasie kierowcy?</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
 </table>
 
 <script>
@@ -50,141 +64,234 @@
   const app = firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-// Global vars
-let userId = 'user_' + Math.random().toString(36).substr(2, 5);
-let currentRole = null;
-let board = [];
-let selectedStart = null;
-let selectedEnd = null;
-let userColor = null;
-let routeIndex = 0;
+  // ====== STANY ======
+  const ROWS = 8, COLS = 8;
+  let userId = crypto.randomUUID();
+  let role = null; // 'driver' lub 'passenger'
+  let gridStart = null;
+  let gridEnd = null;
+  let usersData = {};
+  let matchedDrivers = [];
+  let selectedDriverIndex = 0;
+  const driverColors = {};
 
-// Szachownica A-H, 1-8
-const rows = 8, cols = 8;
-const letters = ['A','B','C','D','E','F','G','H'];
-const numbers = ['1','2','3','4','5','6','7','8'];
+  // ====== ELEMENTY ======
+  const gridEl = document.getElementById('grid');
+  const driverBtn = document.getElementById('driverBtn');
+  const passengerBtn = document.getElementById('passengerBtn');
+  const prevDriverBtn = document.getElementById('prevDriverBtn');
+  const nextDriverBtn = document.getElementById('nextDriverBtn');
+  const acceptBtn = document.getElementById('acceptBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const usersTableBody = document.querySelector('#usersTable tbody');
 
-const boardTable = document.getElementById('board');
-function createBoard() {
-  boardTable.innerHTML = '';
-  const header = boardTable.insertRow();
-  header.insertCell(); // empty corner
-  for (let c=0;c<cols;c++) { header.insertCell().innerText = letters[c]; }
-  for (let r=0;r<rows;r++) {
-    const row = boardTable.insertRow();
-    row.insertCell().innerText = numbers[r];
-    for (let c=0;c<cols;c++) {
-      const cell = row.insertCell();
-      cell.dataset.row = r;
-      cell.dataset.col = c;
-      cell.addEventListener('click', onCellClick);
-      board[r] = board[r] || [];
-      board[r][c] = null;
-    }
-  }
-}
-createBoard();
-
-function onCellClick(e){
-  const r = parseInt(e.target.dataset.row);
-  const c = parseInt(e.target.dataset.col);
-  if(!selectedStart) {
-    selectedStart = {row:r,col:c};
-    e.target.style.border = '3px solid black';
-  } else if(!selectedEnd) {
-    selectedEnd = {row:r,col:c};
-    // tylko prosta linia
-    if(r!==selectedStart.row && c!==selectedStart.col){
-      alert('Wybierz cel w tej samej linii lub kolumnie!');
-      selectedEnd = null;
-      return;
-    }
-    e.target.style.border = '3px solid black';
-    saveRoute();
-  }
-}
-
-function saveRoute(){
-  const color = userColor;
-  db.ref('users/'+userId).set({role: currentRole, start:selectedStart, end:selectedEnd, color: color});
-  document.getElementById('btnAccept').disabled = false;
-}
-
-// Role buttons
-document.getElementById('btnDriver').onclick = () => setRole('driver');
-document.getElementById('btnPassenger').onclick = () => setRole('passenger');
-function setRole(role){
-  currentRole = role;
-  userColor = role==='driver'? randomColor() : 'green';
-  document.body.style.backgroundColor = role==='driver'?'#ADD8E6':'#90EE90';
-  document.getElementById('btnDriver').disabled = true;
-  document.getElementById('btnPassenger').disabled = true;
-}
-
-function randomColor(){ return '#'+Math.floor(Math.random()*16777215).toString(16); }
-
-// Accept button
-document.getElementById('btnAccept').onclick = () => {
-  db.ref('users/'+userId+'/accepted').set(true);
-  document.getElementById('btnAccept').disabled = true;
-  document.getElementById('btnNext').disabled = true;
-  document.getElementById('btnPrev').disabled = true;
-};
-
-// Reset button
-document.getElementById('btnReset').onclick = () => {
-  db.ref('users').remove();
-  location.reload();
-};
-
-// Listen to all users
-db.ref('users').on('value', snapshot => {
-  const users = snapshot.val() || {};
-  updateUsersTable(users);
-  updateBoard(users);
-});
-
-function updateUsersTable(users){
-  const tbody = document.querySelector('#usersTable tbody');
-  tbody.innerHTML = '';
-  Object.keys(users).forEach(id=>{
-    const u = users[id];
-    const tr = tbody.insertRow();
-    tr.insertCell().innerText = id;
-    tr.insertCell().innerText = u.role;
-    const colorCell = tr.insertCell();
-    colorCell.style.backgroundColor = u.color;
-    tr.insertCell().innerText = u.start?letters[u.start.col]+numbers[u.start.row]:'';
-    tr.insertCell().innerText = u.end?letters[u.end.col]+numbers[u.end.row]:'';
-    tr.insertCell().innerText = u.accepted?'Tak':'Nie';
-  });
-}
-
-function updateBoard(users){
-  // clear board
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      const cell = boardTable.rows[r+1].cells[c+1];
-      cell.style.backgroundColor='white';
-    }
-  }
-  Object.keys(users).forEach(id=>{
-    const u = users[id];
-    if(u.start && u.end){
-      const r1 = u.start.row, c1=u.start.col;
-      const r2 = u.end.row, c2=u.end.col;
-      const color = u.color;
-      if(r1===r2){
-        const minC=Math.min(c1,c2), maxC=Math.max(c1,c2);
-        for(let c=minC;c<=maxC;c++) boardTable.rows[r1+1].cells[c+1].style.backgroundColor=color;
-      } else {
-        const minR=Math.min(r1,r2), maxR=Math.max(r1,r2);
-        for(let r=minR;r<=maxR;r++) boardTable.rows[r+1].cells[c1+1].style.backgroundColor=color;
+  // ====== INICJALIZACJA GRIDU ======
+  function initGrid() {
+    gridEl.innerHTML = '';
+    const header = document.createElement('tr');
+    header.innerHTML = '<th></th>' + Array.from({length:COLS}, (_,i)=>`<th>${String.fromCharCode(65+i)}</th>`).join('');
+    gridEl.appendChild(header);
+    for(let r=0;r<ROWS;r++){
+      let tr = document.createElement('tr');
+      tr.innerHTML = `<th>${r+1}</th>`;
+      for(let c=0;c<COLS;c++){
+        let td = document.createElement('td');
+        td.dataset.row = r;
+        td.dataset.col = c;
+        td.onclick = () => cellClick(r,c);
+        tr.appendChild(td);
       }
+      gridEl.appendChild(tr);
     }
-  });
-}
+  }
 
+  function cellClick(r,c){
+    if(!role) return;
+    if(!gridStart){
+      gridStart = {r,c};
+      updateGrid();
+    } else if(!gridEnd){
+      gridEnd = {r,c};
+      if(gridStart.r !== gridEnd.r && gridStart.c !== gridEnd.c){
+        alert("Trasa musi być w linii prostej!");
+        gridEnd = null;
+        return;
+      }
+      saveRoute();
+      updateGrid();
+    }
+  }
+
+  function saveRoute(){
+    const start = `${gridStart.r},${gridStart.c}`;
+    const end = `${gridEnd.r},${gridEnd.c}`;
+    const color = role==='driver' ? getRandomColor() : null;
+    db.ref("users/"+userId).set({
+      role,
+      start,
+      end,
+      color,
+      acceptedBy: null
+    });
+  }
+
+  function getRandomColor(){
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for(let i=0;i<6;i++) color += letters[Math.floor(Math.random()*16)];
+    return color;
+  }
+
+  function updateGrid(){
+    // reset
+    for(let r=0;r<ROWS;r++)
+      for(let c=0;c<COLS;c++)
+        gridEl.rows[r+1].cells[c+1].className='';
+
+    if(gridStart) gridEl.rows[gridStart.r+1].cells[gridStart.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
+    if(gridEnd) gridEl.rows[gridEnd.r+1].cells[gridEnd.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
+
+    // dla kierowcy rysujemy własną trasę
+    if(role==='driver' && gridStart && gridEnd){
+      drawRoute(gridStart, gridEnd, driverColors[userId] || 'blue');
+      // sprawdzamy czy ktoś zaakceptował
+      Object.values(usersData).forEach(u=>{
+        if(u.acceptedBy===userId && u.start && u.end){
+          const pStart = parseCell(u.start);
+          const pEnd = parseCell(u.end);
+          drawRoute(pStart,pEnd,'red'); // wspólne
+          drawRoute(pStart,pEnd,'passengerCell'); // pasażer
+        }
+      });
+    }
+
+    // dla pasażera
+    if(role==='passenger' && gridStart && gridEnd && matchedDrivers[selectedDriverIndex]){
+      // własna trasa
+      drawRoute(gridStart,gridEnd,'passengerCell');
+      const driver = matchedDrivers[selectedDriverIndex];
+      const dStart=parseCell(driver.start);
+      const dEnd=parseCell(driver.end);
+      drawRoute(dStart,dEnd,driver.color || 'blue');
+      // wspólne pola
+      const shared = getSharedCells(gridStart,gridEnd,dStart,dEnd);
+      shared.forEach(cell=>{
+        gridEl.rows[cell.r+1].cells[cell.c+1].classList.add('sharedCell');
+      });
+    }
+  }
+
+  function drawRoute(start,end,className){
+    const color = className==='driverCell' ? 'blue' : className==='passengerCell' ? 'green' : className;
+    if(start.r===end.r)
+      for(let c=Math.min(start.c,end.c);c<=Math.max(start.c,end.c);c++)
+        gridEl.rows[start.r+1].cells[c+1].style.backgroundColor=color;
+    else
+      for(let r=Math.min(start.r,end.r);r<=Math.max(start.r,end.r);r++)
+        gridEl.rows[r+1].cells[start.c+1].style.backgroundColor=color;
+  }
+
+  function parseCell(str){
+    const [r,c] = str.split(',').map(Number);
+    return {r,c};
+  }
+
+  function getSharedCells(start1,end1,start2,end2){
+    const cells1 = (start1.r===end1.r)
+      ? Array.from({length:Math.abs(end1.c-start1.c)+1},(_,i)=>({r:start1.r,c:Math.min(start1.c,end1.c)+i}))
+      : Array.from({length:Math.abs(end1.r-start1.r)+1},(_,i)=>({r:Math.min(start1.r,end1.r)+i,c:start1.c}));
+    const cells2 = (start2.r===end2.r)
+      ? Array.from({length:Math.abs(end2.c-start2.c)+1},(_,i)=>({r:start2.r,c:Math.min(start2.c,end2.c)+i}))
+      : Array.from({length:Math.abs(end2.r-start2.r)+1},(_,i)=>({r:Math.min(start2.r,end2.r)+i,c:start2.c}));
+    return cells1.filter(c1=>cells2.some(c2=>c1.r===c2.r && c1.c===c2.c));
+  }
+
+  // ====== PRZYCISKI ======
+  driverBtn.onclick = ()=>{
+    role='driver';
+    gridStart=null; gridEnd=null;
+    document.body.style.backgroundColor="#ddeeff";
+    driverBtn.disabled=true; passengerBtn.disabled=true;
+    initGrid();
+  };
+  passengerBtn.onclick = ()=>{
+    role='passenger';
+    gridStart=null; gridEnd=null;
+    document.body.style.backgroundColor="#ddffdd";
+    driverBtn.disabled=true; passengerBtn.disabled=true;
+    initGrid();
+  };
+
+  nextDriverBtn.onclick = ()=>{
+    if(matchedDrivers.length===0) return;
+    selectedDriverIndex=(selectedDriverIndex+1)%matchedDrivers.length;
+    updateGrid();
+  };
+  prevDriverBtn.onclick = ()=>{
+    if(matchedDrivers.length===0) return;
+    selectedDriverIndex=(selectedDriverIndex-1+matchedDrivers.length)%matchedDrivers.length;
+    updateGrid();
+  };
+
+  acceptBtn.onclick = ()=>{
+    if(role!=='passenger') return;
+    const driver=matchedDrivers[selectedDriverIndex];
+    db.ref("users/"+driver.id+"/acceptedBy").set(userId);
+  };
+
+  resetBtn.onclick = ()=>{
+    db.ref("users").remove();
+    gridStart=null; gridEnd=null;
+    usersData={};
+    matchedDrivers=[];
+    selectedDriverIndex=0;
+    driverBtn.disabled=false; passengerBtn.disabled=false;
+    initGrid();
+  };
+
+  // ====== DANE FIREBASE ======
+  function refreshUsers(snapshot){
+    usersData = snapshot.val() || {};
+    // kolory kierowców
+    Object.entries(usersData).forEach(([id,u])=>{
+      if(u.role==='driver' && !u.color) u.color=getRandomColor();
+      if(u.role==='driver') driverColors[id]=u.color;
+    });
+
+    // natychmiastowe dopasowanie pasażera
+    if(role==='passenger' && gridStart){
+      matchedDrivers = Object.entries(usersData)
+        .filter(([id,u])=> u.role==='driver' && u.start && u.end)
+        .filter(([id,u])=>{
+          const ps = gridStart;
+          const dStart=parseCell(u.start);
+          const dEnd=parseCell(u.end);
+          const cells = (dStart.r===dEnd.r)
+            ? Array.from({length:Math.abs(dEnd.c-dStart.c)+1},(_,i)=>({r:dStart.r,c:Math.min(dStart.c,dEnd.c)+i}))
+            : Array.from({length:Math.abs(dEnd.r-dStart.r)+1},(_,i)=>({r:Math.min(dStart.r,dEnd.r)+i,c:dStart.c}));
+          return cells.some(c=>c.r===ps.r && c.c===ps.c);
+        }).map(([id,u])=>({id,...u}));
+      selectedDriverIndex=0;
+    }
+
+    updateUsersTable();
+    updateGrid();
+  }
+
+  function updateUsersTable(){
+    usersTableBody.innerHTML='';
+    Object.entries(usersData).forEach(([id,u])=>{
+      const tr=document.createElement('tr');
+      const colorCell = u.color ? `<td style="background-color:${u.color}"></td>` : '<td></td>';
+      tr.innerHTML=`<td>${id}</td>${colorCell}<td>${u.role||''}</td><td>${u.start||''}</td><td>${u.end||''}</td><td>${u.acceptedBy?u.acceptedBy:''}</td>`;
+      usersTableBody.appendChild(tr);
+    });
+  }
+
+  db.ref("users").on('value',refreshUsers);
+
+  // ====== START ======
+  initGrid();
 </script>
 </body>
 </html>
