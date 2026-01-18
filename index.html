@@ -2,263 +2,251 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Crossway – Szachownica</title>
-
+<title>CROSSWAY – GRID PROTOTYP</title>
 <style>
-body { font-family: Arial; margin: 20px; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #222;
+    color: #eee;
+    margin: 0;
+    padding: 20px;
+  }
+  body.driver { background: #1e2f1e; }
+  body.passenger { background: #2f1e1e; }
 
-#grid { border-collapse: collapse; margin-top: 20px; }
-#grid td { 
-  width: 42px; height: 42px; 
-  border: 1px solid #999; 
-  padding: 0;
-  cursor: pointer;
-}
+  h1 { margin-top: 0; }
 
-.cell {
-  width: 100%;
-  height: 50%;
-}
+  button {
+    padding: 8px 14px;
+    margin: 4px;
+    cursor: pointer;
+  }
 
-.driver { border-bottom: 1px solid #aaa; }
-.passenger {}
+  table {
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  td, th {
+    border: 1px solid #555;
+    width: 40px;
+    height: 40px;
+    text-align: center;
+    cursor: pointer;
+  }
 
-.axis { font-weight: bold; background: #eee; }
+  .grid td {
+    background: #333;
+  }
+  .driver-cell { background: #2ecc71 !important; }
+  .passenger-cell { background: #e74c3c !important; }
+  .shared-cell { background: #f1c40f !important; color: #000; }
 
-#controls button { margin-right: 5px; }
+  .panel {
+    margin-top: 20px;
+  }
 
-.driverColor {
-  width: 18px;
-  height: 18px;
-  display: inline-block;
-}
+  .small {
+    font-size: 12px;
+    opacity: 0.8;
+  }
 </style>
-
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 </head>
-
 <body>
 
-<h1>Crossway – model logiczny</h1>
+<h1>CROSSWAY – GRID PROTOTYP</h1>
 
 <div>
-  <button id="driverBtn">Kierowca</button>
-  <button id="passengerBtn">Pasażer</button>
+  <button onclick="selectRole('driver')">KIEROWCA</button>
+  <button onclick="selectRole('passenger')">PASAŻER</button>
 </div>
 
-<div id="controls">
-  <button id="prevBtn">⬅</button>
-  <button id="nextBtn">➡</button>
-  <button id="acceptBtn">AKCEPTUJ</button>
-  <button id="resetBtn">RESET</button>
+<div class="panel">
+  <strong>Wybierz START, potem CEL</strong>
+  <div id="status" class="small"></div>
 </div>
 
-<table id="grid"></table>
+<table class="grid" id="grid"></table>
 
-<h2>Dane użytkowników</h2>
-<table border="1" width="100%" id="usersTable">
-<thead></thead>
-<tbody></tbody>
-</table>
+<div class="panel">
+  <h3>UŻYTKOWNICY (REALTIME)</h3>
+  <table id="usersTable">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Rola</th>
+        <th>Start</th>
+        <th>Cel</th>
+        <th>Na trasie kierowcy</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-/* ================= FIREBASE ================= */
-firebase.initializeApp({
-  databaseURL: "https://crossway-prototyp-default-rtdb.firebaseio.com"
-});
+/* === FIREBASE CONFIG === */
+const firebaseConfig = {
+  databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
+};
+firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* ================= STAN ================= */
-const ROWS = 8, COLS = 8;
+/* === USER === */
 const userId = crypto.randomUUID();
+const userRef = db.ref("users/" + userId);
 
 let role = null;
 let start = null;
 let end = null;
-let users = {};
-let matchedDrivers = [];
-let selected = 0;
+let allUsers = {};
 
-/* ================= GRID ================= */
+/* === GRID === */
+const letters = ["A","B","C","D","E","F","G","H"];
 const grid = document.getElementById("grid");
 
-function initGrid() {
+function buildGrid() {
   grid.innerHTML = "";
-
-  let header = "<tr><td></td>";
-  for(let c=1;c<=COLS;c++) header+=`<td class="axis">${c}</td>`;
-  header+="</tr>";
-  grid.innerHTML += header;
-
-  for(let r=0;r<ROWS;r++){
-    let row = `<tr><td class="axis">${String.fromCharCode(65+r)}</td>`;
-    for(let c=0;c<COLS;c++){
-      row += `
-      <td onclick="cellClick(${r},${c})">
-        <div class="cell driver"></div>
-        <div class="cell passenger"></div>
-      </td>`;
+  for (let y = 8; y >= 1; y--) {
+    const tr = document.createElement("tr");
+    for (let x = 0; x < 8; x++) {
+      const td = document.createElement("td");
+      const cell = letters[x] + y;
+      td.textContent = cell;
+      td.onclick = () => selectCell(cell);
+      tr.appendChild(td);
     }
-    row+="</tr>";
-    grid.innerHTML += row;
+    grid.appendChild(tr);
+  }
+}
+buildGrid();
+
+/* === ROLE === */
+function selectRole(r) {
+  if (role) return;
+  role = r;
+  document.body.classList.add(r);
+  userRef.set({ role });
+}
+
+/* === CELL SELECTION === */
+function selectCell(cell) {
+  if (!role) return;
+
+  if (!start) {
+    start = cell;
+    updateStatus();
+    sync();
+  } else if (!end) {
+    if (!validRoute(start, cell)) {
+      alert("Trasa musi być w jednej linii");
+      return;
+    }
+    end = cell;
+    updateStatus();
+    sync();
   }
 }
 
-window.cellClick = (r,c)=>{
-  if(!role) return;
+/* === ROUTE LOGIC === */
+function validRoute(a, b) {
+  return a[0] === b[0] || a.slice(1) === b.slice(1);
+}
 
-  if(!start) start={r,c};
-  else if(!end){
-    if(start.r!==r && start.c!==c){
-      alert("Tylko linia prosta");
-      return;
-    }
-    end={r,c};
-    save();
+function buildRoute(a, b) {
+  const route = [];
+  if (a[0] === b[0]) {
+    const col = a[0];
+    let y1 = +a.slice(1);
+    let y2 = +b.slice(1);
+    for (let y = Math.min(y1,y2); y <= Math.max(y1,y2); y++)
+      route.push(col + y);
+  } else {
+    const row = a.slice(1);
+    let x1 = letters.indexOf(a[0]);
+    let x2 = letters.indexOf(b[0]);
+    for (let x = Math.min(x1,x2); x <= Math.max(x1,x2); x++)
+      route.push(letters[x] + row);
   }
-  render();
-};
+  return route;
+}
 
-function save(){
-  db.ref("users/"+userId).set({
+/* === SYNC === */
+function sync() {
+  if (!role || !start || !end) return;
+  userRef.update({
     role,
     start,
     end,
-    color: role==="driver" ? randColor() : null,
-    accepted: null
+    route: buildRoute(start, end)
   });
 }
 
-/* ================= RYSOWANIE ================= */
-function clearGrid(){
-  document.querySelectorAll(".driver,.passenger").forEach(d=>{
-    d.style.background="";
-  });
-}
-
-function routeCells(a,b){
-  let out=[];
-  if(a.r===b.r)
-    for(let c=Math.min(a.c,b.c);c<=Math.max(a.c,b.c);c++) out.push({r:a.r,c});
-  else
-    for(let r=Math.min(a.r,b.r);r<=Math.max(a.r,b.r);r++) out.push({r,c:a.c});
-  return out;
-}
-
-function paint(cell,who,color){
-  const td = grid.rows[cell.r+1].cells[cell.c+1];
-  td.querySelector(`.${who}`).style.background=color;
-}
-
-function render(){
-  clearGrid();
-  if(start && end){
-    routeCells(start,end).forEach(c=>{
-      paint(c, role==="driver"?"driver":"passenger", role==="driver"?"#bbb":"#7fdc7f");
-    });
-  }
-
-  if(role==="passenger" && matchedDrivers[selected]){
-    const d = matchedDrivers[selected];
-    routeCells(d.start,d.end).forEach(c=>{
-      paint(c,"driver",d.color);
-    });
-
-    const shared = routeCells(start,end).filter(p =>
-      routeCells(d.start,d.end).some(q=>q.r===p.r && q.c===p.c)
-    );
-    shared.forEach(c=>{
-      paint(c,"driver",d.color);
-      paint(c,"passenger",d.color);
-    });
-  }
-
-  if(role==="driver"){
-    Object.values(users).forEach(u=>{
-      if(u.accepted===userId){
-        routeCells(u.start,u.end).forEach(c=>{
-          paint(c,"passenger","#7fdc7f");
-        });
-      }
-    });
-  }
-}
-
-/* ================= MATCHING ================= */
-function recompute(){
-  matchedDrivers=[];
-  if(role!=="passenger" || !start || !end) return;
-
-  Object.entries(users).forEach(([id,u])=>{
-    if(u.role==="driver"){
-      const shared = routeCells(start,end)
-        .some(p=>routeCells(u.start,u.end)
-        .some(q=>q.r===p.r && q.c===p.c));
-      if(shared) matchedDrivers.push({...u,id});
-    }
-  });
-  selected=0;
-}
-
-/* ================= UI ================= */
-driverBtn.onclick=()=>{
-  role="driver";
-  document.body.style.background="#ddeeff";
-  lockRole();
-};
-
-passengerBtn.onclick=()=>{
-  role="passenger";
-  document.body.style.background="#ddffdd";
-  lockRole();
-};
-
-function lockRole(){
-  driverBtn.disabled=true;
-  passengerBtn.disabled=true;
-}
-
-nextBtn.onclick=()=>{ selected=(selected+1)%matchedDrivers.length; render(); };
-prevBtn.onclick=()=>{ selected=(selected-1+matchedDrivers.length)%matchedDrivers.length; render(); };
-
-acceptBtn.onclick=()=>{
-  const d=matchedDrivers[selected];
-  db.ref("users/"+d.id+"/accepted").set(userId);
-  disableControls();
-};
-
-resetBtn.onclick=()=> db.ref("users").remove();
-
-function disableControls(){
-  document.querySelectorAll("button").forEach(b=>b.disabled=true);
-}
-
-/* ================= TABLE ================= */
-function renderTable(){
-  const head=document.querySelector("#usersTable thead");
-  const body=document.querySelector("#usersTable tbody");
-  head.innerHTML="<tr><th>ID</th><th>Rola</th></tr>";
-  body.innerHTML="";
-
-  Object.entries(users).forEach(([id,u])=>{
-    body.innerHTML+=`<tr><td>${id.slice(0,6)}</td><td>${u.role}</td></tr>`;
-  });
-}
-
-/* ================= FIREBASE ================= */
-db.ref("users").on("value",snap=>{
-  users=snap.val()||{};
-  recompute();
-  render();
+/* === RENDER === */
+db.ref("users").on("value", snap => {
+  allUsers = snap.val() || {};
+  renderGrid();
   renderTable();
 });
 
-initGrid();
+function renderGrid() {
+  [...document.querySelectorAll(".grid td")].forEach(td => {
+    td.className = "";
+  });
 
-function randColor(){
-  return `hsl(${Math.random()*360},70%,60%)`;
+  const drivers = Object.values(allUsers).filter(u => u.role === "driver");
+  const passengers = Object.values(allUsers).filter(u => u.role === "passenger");
+
+  drivers.forEach(d => {
+    (d.route || []).forEach(c => markCell(c, "driver-cell"));
+  });
+
+  passengers.forEach(p => {
+    markCell(p.start, "passenger-cell");
+    drivers.forEach(d => {
+      if ((d.route || []).includes(p.start))
+        markCell(p.start, "shared-cell");
+    });
+  });
+}
+
+function markCell(cell, cls) {
+  [...grid.querySelectorAll("td")].forEach(td => {
+    if (td.textContent === cell) td.classList.add(cls);
+  });
+}
+
+/* === TABLE === */
+function renderTable() {
+  const tbody = document.querySelector("#usersTable tbody");
+  tbody.innerHTML = "";
+
+  const drivers = Object.values(allUsers).filter(u => u.role === "driver");
+
+  Object.entries(allUsers).forEach(([id,u]) => {
+    const tr = document.createElement("tr");
+    const onRoute = (u.role === "passenger" && drivers.some(d => (d.route||[]).includes(u.start)))
+      ? "TAK" : "-";
+
+    tr.innerHTML = `
+      <td>${id.slice(0,6)}</td>
+      <td>${u.role || "-"}</td>
+      <td>${u.start || "-"}</td>
+      <td>${u.end || "-"}</td>
+      <td>${onRoute}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function updateStatus() {
+  document.getElementById("status").textContent =
+    `START: ${start || "-"} | CEL: ${end || "-"}`;
 }
 </script>
+
 </body>
 </html>
