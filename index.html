@@ -19,7 +19,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 1.9</h1>
+															<h1>Crossway – Szachownica 2.0</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -32,6 +32,11 @@
   <button id="acceptBtn">✅ Akceptuj</button>
   <button id="resetBtn">🛑 Zakończ przejazd</button>
 </div>
+
+
+<div id="assignedPassenger" style="margin-top:10px; font-weight:bold;"></div>
+
+
 
 <table id="grid"></table>
 
@@ -377,42 +382,52 @@ acceptBtn.onclick = () => {
 
   // ====== DANE FIREBASE ======
   function refreshUsers(snapshot){
-usersData = snapshot.val() || {};
+  usersData = snapshot.val() || {};
 
+  // ====== PASAŻEROWIE – OD NOWA ======
+  const passengers = Object.values(usersData)
+    .filter(u => u.role === 'passenger' && typeof u.number === 'number')
+    .sort((a,b)=>a.number-b.number);
 
-    usersData = snapshot.val() || {};
-    // ====== PASAŻEROWIE – ZAWSZE OD NOWA ======
-const passengers = Object.values(usersData)
-  .filter(u => u.role === 'passenger' && typeof u.number === 'number')
-  .sort((a, b) => a.number - b.number);
+  passengersOrder = passengers.map(p => p.number);
 
-passengersOrder = passengers.map(p => p.number);
+  // kolory kierowców
+  Object.entries(usersData).forEach(([id,u])=>{
+    if(u.role==='driver' && !u.color) u.color=getRandomColor();
+    if(u.role==='driver') driverColors[id]=u.color;
+  });
 
-    // kolory kierowców
-    Object.entries(usersData).forEach(([id,u])=>{
-      if(u.role==='driver' && !u.color) u.color=getRandomColor();
-      if(u.role==='driver') driverColors[id]=u.color;
-    });
-
-    // natychmiastowe dopasowanie pasażera
-    if(role==='passenger' && gridStart){
-      matchedDrivers = Object.entries(usersData)
-        .filter(([id,u])=> u.role==='driver' && u.start && u.end)
-        .filter(([id,u])=>{
-          const ps = gridStart;
-          const dStart=parseCell(u.start);
-          const dEnd=parseCell(u.end);
-          const cells = (dStart.r===dEnd.r)
-            ? Array.from({length:Math.abs(dEnd.c-dStart.c)+1},(_,i)=>({r:dStart.r,c:Math.min(dStart.c,dEnd.c)+i}))
-            : Array.from({length:Math.abs(dEnd.r-dStart.r)+1},(_,i)=>({r:Math.min(dStart.r,dEnd.r)+i,c:dStart.c}));
-          return cells.some(c=>c.r===ps.r && c.c===ps.c);
-        }).map(([id,u])=>({id,...u}));
-      selectedDriverIndex=0;
+  // ===== SPRAWDZENIE, KTÓRY PASAŻER ZOSTAŁ PRZYDZIELONY KIEROWCY =====
+  if(role==='driver' && userNumber!=null){
+    const assignedPassengers = passengers.filter(p => Array.isArray(p.acceptedBy) && p.acceptedBy.includes(userNumber));
+    const assignedDiv = document.getElementById('assignedPassenger');
+    if(assignedPassengers.length > 0){
+      assignedDiv.textContent = "Przydzielony pasażer: #" + assignedPassengers.map(p=>p.number).join(', ');
+    } else {
+      assignedDiv.textContent = "Brak przydzielonych pasażerów";
     }
-
-    updateUsersTable();
-    updateGrid();
   }
+
+  // natychmiastowe dopasowanie pasażera (dla pasażera)
+  if(role==='passenger' && gridStart){
+    matchedDrivers = Object.entries(usersData)
+      .filter(([id,u])=> u.role==='driver' && u.start && u.end)
+      .filter(([id,u])=>{
+        const ps = gridStart;
+        const dStart=parseCell(u.start);
+        const dEnd=parseCell(u.end);
+        const cells = (dStart.r===dEnd.r)
+          ? Array.from({length:Math.abs(dEnd.c-dStart.c)+1},(_,i)=>({r:dStart.r,c:Math.min(dStart.c,dEnd.c)+i}))
+          : Array.from({length:Math.abs(dEnd.r-dStart.r)+1},(_,i)=>({r:Math.min(dStart.r,dEnd.r)+i,c:dStart.c}));
+        return cells.some(c=>c.r===ps.r && c.c===ps.c);
+      }).map(([id,u])=>({id,...u}));
+    selectedDriverIndex=0;
+  }
+
+  updateUsersTable();
+  updateGrid();
+}
+
 
 function updateUsersTable(){
   updateUsersHeader();
