@@ -40,14 +40,14 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
 <h2>Użytkownicy / trasy</h2>
 <table id="usersTable">
   <thead>
-    <tr>
-      <th>ID</th>
-      <th>Kolor</th>
-      <th>Rola</th>
-      <th>Start</th>
-      <th>Cel</th>
-      <th>Na trasie kierowcy?</th>
-    </tr>
+   <tr id="usersHeader">
+  <th>ID</th>
+  <th>Kolor</th>
+  <th>Rola</th>
+  <th>Start</th>
+  <th>Cel</th>
+</tr>
+
   </thead>
   <tbody></tbody>
 </table>
@@ -76,6 +76,7 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
   let usersData = {};
   let matchedDrivers = [];
   let selectedDriverIndex = 0;
+  let passengersOrder = []; // [1,2,3...] – kolejność pasażerów
 
   const driverColors = {};
 
@@ -125,6 +126,34 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
       updateGrid();
     }
   }
+
+function updateUsersHeader(){
+  const header = document.getElementById('usersHeader');
+  header.innerHTML = `
+    <th>ID</th>
+    <th>Kolor</th>
+    <th>Rola</th>
+    <th>Start</th>
+    <th>Cel</th>
+    ${passengersOrder.map(n=>`<th>P${n}</th>`).join('')}
+  `;
+}
+
+function passengerOnDriverRoute(passenger, driver){
+  if(!passenger.start || !driver.start) return false;
+
+  const ps = parseCell(passenger.start);
+  const ds = parseCell(driver.start);
+  const de = parseCell(driver.end);
+
+  const cells = (ds.r===de.r)
+    ? Array.from({length:Math.abs(de.c-ds.c)+1},(_,i)=>({r:ds.r,c:Math.min(ds.c,de.c)+i}))
+    : Array.from({length:Math.abs(de.r-ds.r)+1},(_,i)=>({r:Math.min(ds.r,de.r)+i,c:ds.c}));
+
+  return cells.some(c=>c.r===ps.r && c.c===ps.c);
+}
+
+
 
 function saveRoute(){
   if(!userId){
@@ -278,6 +307,11 @@ function assignUserNumber(callback){
 
   // ====== DANE FIREBASE ======
   function refreshUsers(snapshot){
+    passengersOrder = Object.values(usersData)
+  .filter(u => u.role === 'passenger' && u.number)
+  .sort((a,b)=>a.number-b.number)
+  .map(u => u.number);
+
     usersData = snapshot.val() || {};
     // kolory kierowców
     Object.entries(usersData).forEach(([id,u])=>{
@@ -305,16 +339,32 @@ function assignUserNumber(callback){
     updateGrid();
   }
 
-  function updateUsersTable(){
-    usersTableBody.innerHTML='';
-    Object.entries(usersData).forEach(([id,u])=>{
-      const tr=document.createElement('tr');
-      const colorCell = u.color ? `<td style="background-color:${u.color}"></td>` : '<td></td>';
-      tr.innerHTML=`<td>${u.number || id}</td>
-${colorCell}<td>${u.role||''}</td><td>${u.start||''}</td><td>${u.end||''}</td><td>${u.acceptedBy?u.acceptedBy:''}</td>`;
-      usersTableBody.appendChild(tr);
-    });
-  }
+function updateUsersTable(){
+  updateUsersHeader();
+  usersTableBody.innerHTML='';
+
+  const passengers = Object.values(usersData).filter(u=>u.role==='passenger');
+  const drivers = Object.values(usersData).filter(u=>u.role==='driver');
+
+  drivers.forEach(driver=>{
+    const tr=document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${driver.number}</td>
+      <td style="background:${driver.color||''}"></td>
+      <td>driver</td>
+      <td>${driver.start||''}</td>
+      <td>${driver.end||''}</td>
+      ${passengersOrder.map(pNum=>{
+        const p = passengers.find(x=>x.number===pNum);
+        return `<td>${p && passengerOnDriverRoute(p,driver) ? 'O' : ''}</td>`;
+      }).join('')}
+    `;
+
+    usersTableBody.appendChild(tr);
+  });
+}
+
 
   db.ref("users").on('value',refreshUsers);
 
