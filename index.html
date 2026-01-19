@@ -19,7 +19,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 1.9</h1>
+															<h1>Crossway – Szachownica 1.8</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -220,39 +220,78 @@ function clearGridVisuals() {
 }
 
 
-function updateGrid(){
+function updateGrid() {
   clearGridVisuals();
 
-    // reset
-    for(let r=0;r<ROWS;r++)
-      for(let c=0;c<COLS;c++)
-        gridEl.rows[r+1].cells[c+1].className='';
+  // reset klas wszystkich komórek
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      gridEl.rows[r + 1].cells[c + 1].className = '';
 
-    if(gridStart) gridEl.rows[gridStart.r+1].cells[gridStart.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
-    if(gridEnd) gridEl.rows[gridEnd.r+1].cells[gridEnd.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
+  // zaznaczenie punktów start/stop
+  if (gridStart) gridEl.rows[gridStart.r + 1].cells[gridStart.c + 1].classList.add(role === 'driver' ? 'driverCell' : 'passengerCell');
+  if (gridEnd) gridEl.rows[gridEnd.r + 1].cells[gridEnd.c + 1].classList.add(role === 'driver' ? 'driverCell' : 'passengerCell');
 
-    // dla kierowcy rysujemy własną trasę
-if(role==='driver' && gridStart && gridEnd){
-  // własna trasa kierowcy
-  drawRoute(gridStart, gridEnd, driverColors[userId] || 'blue');
+  // ===== KIEROWCA =====
+  if (role === 'driver' && gridStart && gridEnd) {
+    // własna trasa
+    drawRoute(gridStart, gridEnd, driverColors[userId] || 'blue');
 
-  // rysujemy trasy wszystkich pasażerów, którzy zaakceptowali tego kierowcę
-  Object.values(usersData).forEach(u => {
-    if(u.role === 'passenger' && Array.isArray(u.acceptedBy) && u.acceptedBy.includes(userNumber) && u.start && u.end){
-      const pStart = parseCell(u.start);
-      const pEnd = parseCell(u.end);
+    // rysujemy trasy wszystkich pasażerów, którzy zaakceptowali tego kierowcę
+    Object.values(usersData).forEach(u => {
+      if (u.role === 'passenger' && Array.isArray(u.acceptedBy) && u.acceptedBy.includes(u.number) && u.start && u.end) {
+        // tylko pasażerowie, którzy zaakceptowali jakiegoś kierowcę
+        const pStart = parseCell(u.start);
+        const pEnd = parseCell(u.end);
 
-      // trasa pasażera
-      drawRoute(pStart, pEnd, 'green');
+        drawRoute(pStart, pEnd, 'green'); // trasa pasażera
 
-      // wspólne pola
-      const shared = getSharedCells(gridStart, gridEnd, pStart, pEnd);
-      shared.forEach(cell => {
-        gridEl.rows[cell.r+1].cells[cell.c+1].classList.add('sharedCell');
-      });
+        // wspólne pola
+        const shared = getSharedCells(gridStart, gridEnd, pStart, pEnd);
+        shared.forEach(cell => {
+          gridEl.rows[cell.r + 1].cells[cell.c + 1].classList.add('sharedCell');
+        });
+      }
+    });
+  }
+
+  // ===== PASAŻER =====
+  if (role === 'passenger' && gridStart && gridEnd) {
+    // własna trasa
+    drawRoute(gridStart, gridEnd, 'passengerCell');
+
+    if (!acceptedDriverId && matchedDrivers[selectedDriverIndex]) {
+      // aktualnie wybrany kierowca (jeszcze nie zaakceptowany)
+      const driver = matchedDrivers[selectedDriverIndex];
+      if (driver.start && driver.end) {
+        const dStart = parseCell(driver.start);
+        const dEnd = parseCell(driver.end);
+        drawRoute(dStart, dEnd, driver.color || 'blue');
+
+        const shared = getSharedCells(gridStart, gridEnd, dStart, dEnd);
+        shared.forEach(cell => {
+          gridEl.rows[cell.r + 1].cells[cell.c + 1].classList.add('sharedCell');
+        });
+      }
     }
-  });
+
+    if (acceptedDriverId) {
+      // po kliknięciu "Akceptuj" rysujemy trasę zaakceptowanego kierowcy
+      const driver = usersData[acceptedDriverId];
+      if (driver && driver.start && driver.end) {
+        const dStart = parseCell(driver.start);
+        const dEnd = parseCell(driver.end);
+        drawRoute(dStart, dEnd, driver.color || 'blue');
+
+        const shared = getSharedCells(gridStart, gridEnd, dStart, dEnd);
+        shared.forEach(cell => {
+          gridEl.rows[cell.r + 1].cells[cell.c + 1].classList.add('sharedCell');
+        });
+      }
+    }
+  }
 }
+
 
 
     // dla pasażera
