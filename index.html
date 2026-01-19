@@ -1,5 +1,3 @@
-Czytelne, bez dzielonych pól, akceptacja nie działa,
-
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -21,7 +19,7 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
 </head>
 <body>
 
-																	<h1>Crossway – Szachownica 1.8</h1>
+																	<h1>Crossway – Szachownica 1.9</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -232,38 +230,33 @@ function updateGrid(){
     if(gridEnd) gridEl.rows[gridEnd.r+1].cells[gridEnd.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
 
     // dla kierowcy rysujemy własną trasę
-    if(role==='driver' && gridStart && gridEnd){
-      drawRoute(gridStart, gridEnd, driverColors[userId] || 'blue');
-      // sprawdzamy czy ktoś zaakceptował
-      Object.values(usersData).forEach(u=>{
-        if(u.acceptedBy===userId && u.start && u.end){
-          const pStart = parseCell(u.start);
-          const pEnd = parseCell(u.end);
-          drawRoute(pStart,pEnd,'red'); // wspólne
-          drawRoute(pStart,pEnd,'passengerCell'); // pasażer
-        }
+if(role==='driver' && gridStart && gridEnd){
+  // 1️⃣ rysujemy własną trasę
+  drawRoute(gridStart, gridEnd, driverColors[userId] || 'blue');
+
+  // 2️⃣ sprawdzamy, którzy pasażerowie zaakceptowali tego kierowcę
+  const acceptedPassengers = Object.values(usersData).filter(u =>
+    u.role==='passenger' &&
+    u.acceptedBy?.includes(userNumber) // userNumber = numer tego kierowcy
+  );
+
+  // 3️⃣ rysujemy trasę i wspólne pola dla każdego zaakceptowanego pasażera
+  acceptedPassengers.forEach(p => {
+    if(p.start && p.end){
+      const pStart = parseCell(p.start);
+      const pEnd = parseCell(p.end);
+
+      // trasa pasażera
+      drawRoute(pStart, pEnd, 'green');
+
+      // wspólne pola
+      const shared = getSharedCells(gridStart, gridEnd, pStart, pEnd);
+      shared.forEach(cell => {
+        gridEl.rows[cell.r+1].cells[cell.c+1].classList.add('sharedCell');
       });
     }
-
-    // dla pasażera
-if(role==='passenger' && gridStart && gridEnd){
-  // zawsze rysujemy własną trasę pasażera
-  drawRoute(gridStart, gridEnd, 'passengerCell');
-
-  // jeśli istnieje dopasowany kierowca, rysujemy dodatkowo jego trasę i wspólne pola
-  if(matchedDrivers[selectedDriverIndex]){
-    const driver = matchedDrivers[selectedDriverIndex];
-    const dStart = parseCell(driver.start);
-    const dEnd = parseCell(driver.end);
-    drawRoute(dStart, dEnd, driver.color || 'blue');
-
-    const shared = getSharedCells(gridStart, gridEnd, dStart, dEnd);
-    shared.forEach(cell => {
-      gridEl.rows[cell.r + 1].cells[cell.c + 1].classList.add('sharedCell');
-    });
-  }
+  });
 }
-  }
 
   function drawRoute(start,end,className){
     const color = className==='driverCell' ? 'blue' : className==='passengerCell' ? 'green' : className;
@@ -317,11 +310,29 @@ if(role==='passenger' && gridStart && gridEnd){
     updateGrid();
   };
 
-  acceptBtn.onclick = ()=>{
-    if(role!=='passenger') return;
-    const driver=matchedDrivers[selectedDriverIndex];
-    db.ref("users/"+driver.id+"/acceptedBy").set(userId);
-  };
+acceptBtn.onclick = ()=>{
+  if(role!=='passenger') return;
+
+  // 1️⃣ pobierz obecnie porównywanego kierowcę
+  const driver = matchedDrivers[selectedDriverIndex];
+
+  // 2️⃣ Zapis w Firebase: dodaj pasażera do listy zaakceptowanych
+  const driverRef = db.ref("users/"+driver.id+"/acceptedBy");
+  driverRef.transaction(current => {
+    if(!current) return [userNumber];        // pierwszy pasażer
+    if(!current.includes(userNumber)) current.push(userNumber); // dodaj nowego
+    return current;
+  });
+
+  // 3️⃣ Dezaktywacja wszystkich przycisków poza Zakończ przejazd
+  prevDriverBtn.disabled = true;
+  nextDriverBtn.disabled = true;
+  acceptBtn.disabled = true;
+
+  // 4️⃣ Szachownica pasażera pozostaje niezmieniona (widok przed kliknięciem)
+  // updateGrid() nie wywołujemy – pozostaje trasa pasażera + obecnie oglądany kierowca + wspólna trasa
+};
+
 
   resetBtn.onclick = ()=>{
     db.ref("users").remove();
