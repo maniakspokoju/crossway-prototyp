@@ -21,7 +21,7 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
 </head>
 <body>
 
-																	<h1>Crossway – Szachownica 1.3</h1>
+																	<h1>Crossway – Szachownica 1.4</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -43,7 +43,6 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
    <tr id="usersHeader">
   <th>ID</th>
   <th>Kolor</th>
-  <th>Rola</th>
   <th>Start</th>
   <th>Cel</th>
 </tr>
@@ -132,10 +131,9 @@ function updateUsersHeader(){
   header.innerHTML = `
     <th>ID</th>
     <th>Kolor</th>
-    <th>Rola</th>
     <th>Start</th>
     <th>Cel</th>
-    ${passengersOrder.map(n=>`<th>P${n}</th>`).join('')}
+    ${passengersOrder.map(n=>`<th>${n}</th>`).join('')}
   `;
 }
 
@@ -363,17 +361,17 @@ function updateUsersTable(){
   drivers.forEach(driver=>{
     const tr=document.createElement('tr');
 
-    tr.innerHTML = `
-      <td>${driver.number}</td>
-      <td style="background:${driver.color||''}"></td>
-      <td>driver</td>
-      <td>${driver.start||''}</td>
-      <td>${driver.end||''}</td>
-      ${passengersOrder.map(pNum=>{
-        const p = passengers.find(x=>x.number===pNum);
-        return `<td>${p && passengerOnDriverRoute(p,driver) ? 'O' : ''}</td>`;
-      }).join('')}
-    `;
+tr.innerHTML = `
+  <td>${driver.number}</td>
+  <td style="background:${driver.color||''}"></td>
+  <td>${driver.start||''}</td>
+  <td>${driver.end||''}</td>
+  ${passengersOrder.map(pNum=>{
+    const p = passengers.find(x=>x.number===pNum);
+    return `<td>${p && passengerOnDriverRoute(p,driver) ? 'O' : ''}</td>`;
+  }).join('')}
+`;
+
 
     usersTableBody.appendChild(tr);
   });
