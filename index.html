@@ -21,7 +21,7 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
 </head>
 <body>
 
-																	<h1>Crossway – Szachownica 1.4</h1>
+																	<h1>Crossway – Szachownica 1.5</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -76,6 +76,8 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
   let matchedDrivers = [];
   let selectedDriverIndex = 0;
   let passengersOrder = []; // [1,2,3...] – kolejność pasażerów
+ 
+
 
   const driverColors = {};
 
@@ -127,15 +129,19 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
   }
 
 function updateUsersHeader(){
-  const header = document.getElementById('usersHeader');
-  header.innerHTML = `
-    <th>ID</th>
-    <th>Kolor</th>
-    <th>Start</th>
-    <th>Cel</th>
-    ${passengersOrder.map(n=>`<th>${n}</th>`).join('')}
+  const thead = document.querySelector('#usersTable thead');
+
+  thead.innerHTML = `
+    <tr>
+      <th>#</th>
+      <th>Kolor</th>
+      <th>Start</th>
+      <th>Cel</th>
+      ${passengersOrder.map(n => `<th>${n}</th>`).join('')}
+    </tr>
   `;
 }
+
 
 function passengerOnDriverRoute(passenger, driver){
   if(!passenger.start || !driver.start) return false;
@@ -318,13 +324,17 @@ function updateGrid(){
 
   // ====== DANE FIREBASE ======
   function refreshUsers(snapshot){
-passengersOrder = Object.values(usersData)
-  .filter(u => u.role === 'passenger')
-  .sort((a,b)=>a.number-b.number)
-  .map(u => u.number);
+usersData = snapshot.val() || {};
 
 
     usersData = snapshot.val() || {};
+    // ====== PASAŻEROWIE – ZAWSZE OD NOWA ======
+const passengers = Object.values(usersData)
+  .filter(u => u.role === 'passenger' && typeof u.number === 'number')
+  .sort((a, b) => a.number - b.number);
+
+passengersOrder = passengers.map(p => p.number);
+
     // kolory kierowców
     Object.entries(usersData).forEach(([id,u])=>{
       if(u.role==='driver' && !u.color) u.color=getRandomColor();
