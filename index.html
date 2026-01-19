@@ -21,7 +21,7 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
 </head>
 <body>
 
-<h1>Crossway – Szachownica</h1>
+																	<h1>Crossway – Szachownica 1.0</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -68,13 +68,15 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
 
   // ====== STANY ======
   const ROWS = 8, COLS = 8;
-  let userId = crypto.randomUUID();
+  let userId = null; // zostanie ustawione po pobraniu numeru
+  let userNumber = null;
   let role = null; // 'driver' lub 'passenger'
   let gridStart = null;
   let gridEnd = null;
   let usersData = {};
   let matchedDrivers = [];
   let selectedDriverIndex = 0;
+
   const driverColors = {};
 
   // ====== ELEMENTY ======
@@ -124,18 +126,40 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
     }
   }
 
-  function saveRoute(){
-    const start = `${gridStart.r},${gridStart.c}`;
-    const end = `${gridEnd.r},${gridEnd.c}`;
-    const color = role==='driver' ? getRandomColor() : null;
-    db.ref("users/"+userId).set({
-      role,
-      start,
-      end,
-      color,
-      acceptedBy: null
-    });
+function saveRoute(){
+  if(!userId){
+    assignUserNumber(saveRoute);
+    return;
   }
+
+  const start = `${gridStart.r},${gridStart.c}`;
+  const end = `${gridEnd.r},${gridEnd.c}`;
+  const color = role==='driver' ? getRandomColor() : null;
+
+  db.ref("users/"+userId).set({
+    number: userNumber,
+    role,
+    start,
+    end,
+    color,
+    acceptedBy: null
+  });
+}
+
+
+function assignUserNumber(callback){
+  const ref = db.ref("meta/nextUserNumber");
+  ref.transaction(current => {
+    return (current || 0) + 1;
+  }, (error, committed, snapshot) => {
+    if(committed){
+      userNumber = snapshot.val();
+      userId = String(userNumber); // ID = "1", "2", "3"
+      callback();
+    }
+  });
+}
+
 
   function getRandomColor(){
     const letters = '0123456789ABCDEF';
@@ -243,6 +267,7 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
 
   resetBtn.onclick = ()=>{
     db.ref("users").remove();
+    db.ref("meta").remove(); // ⬅ reset licznika
     gridStart=null; gridEnd=null;
     usersData={};
     matchedDrivers=[];
@@ -285,7 +310,8 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
     Object.entries(usersData).forEach(([id,u])=>{
       const tr=document.createElement('tr');
       const colorCell = u.color ? `<td style="background-color:${u.color}"></td>` : '<td></td>';
-      tr.innerHTML=`<td>${id}</td>${colorCell}<td>${u.role||''}</td><td>${u.start||''}</td><td>${u.end||''}</td><td>${u.acceptedBy?u.acceptedBy:''}</td>`;
+      tr.innerHTML=`<td>${u.number || id}</td>
+${colorCell}<td>${u.role||''}</td><td>${u.start||''}</td><td>${u.end||''}</td><td>${u.acceptedBy?u.acceptedBy:''}</td>`;
       usersTableBody.appendChild(tr);
     });
   }
