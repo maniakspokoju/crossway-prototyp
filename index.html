@@ -21,7 +21,7 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
 </head>
 <body>
 
-																	<h1>Crossway – Szachownica 1.6</h1>
+																	<h1>Crossway – Szachownica 1.7</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -177,6 +177,15 @@ function saveRoute(){
     color,
     acceptedBy: null
   });
+
+  // 🔹 dezaktywacja przycisków po ustaleniu trasy kierowcy
+  if(role === 'driver') {
+    prevDriverBtn.disabled = true;
+    nextDriverBtn.disabled = true;
+    acceptBtn.disabled = true;
+  }
+}
+
 }
 
 
