@@ -19,7 +19,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 1.2</h1>
+															<h1>Crossway – Szachownica 1.9</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -255,7 +255,6 @@ if(role==='driver' && gridStart && gridEnd){
 }
 
 
-
     // dla pasażera
 if(role==='passenger' && gridStart && gridEnd){
   // zawsze własna trasa pasażera
@@ -345,12 +344,15 @@ if(role==='passenger' && gridStart && gridEnd){
 
 acceptBtn.onclick = () => {
   if(role !== 'passenger') return;
-  const driver = matchedDrivers[selectedDriverIndex];
-  const driverRef = db.ref("users/" + driver.id + "/acceptedBy");
 
+  const driver = matchedDrivers[selectedDriverIndex];
+  acceptedDriverId = driver.id; // zapisujemy zaakceptowanego kierowcę
+
+  // aktualizacja w Firebase (tablica acceptedBy)
+  const driverRef = db.ref("users/" + driver.id + "/acceptedBy");
   driverRef.transaction(current => {
-    if(!current) return [userNumber];  // jeśli pusto -> nowa tablica
-    if(!current.includes(userNumber)) current.push(userNumber); // dodaj pasażera
+    if(!current) return [userNumber];
+    if(!current.includes(userNumber)) current.push(userNumber);
     return current;
   });
 
@@ -359,7 +361,6 @@ acceptBtn.onclick = () => {
   nextDriverBtn.disabled = true;
   acceptBtn.disabled = true;
 };
-
 
 
 
