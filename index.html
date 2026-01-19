@@ -19,7 +19,7 @@
 </head>
 <body>
 
-																	<h1>Crossway – Szachownica 1.8</h1>
+															<h1>Crossway – Szachownica 1.9</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -232,18 +232,28 @@ function updateGrid(){
     if(gridEnd) gridEl.rows[gridEnd.r+1].cells[gridEnd.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
 
     // dla kierowcy rysujemy własną trasę
-    if(role==='driver' && gridStart && gridEnd){
-      drawRoute(gridStart, gridEnd, driverColors[userId] || 'blue');
-      // sprawdzamy czy ktoś zaakceptował
-      Object.values(usersData).forEach(u=>{
-        if(u.acceptedBy===userId && u.start && u.end){
-          const pStart = parseCell(u.start);
-          const pEnd = parseCell(u.end);
-          drawRoute(pStart,pEnd,'red'); // wspólne
-          drawRoute(pStart,pEnd,'passengerCell'); // pasażer
-        }
+if(role==='driver' && gridStart && gridEnd){
+  // własna trasa kierowcy
+  drawRoute(gridStart, gridEnd, driverColors[userId] || 'blue');
+
+  // rysujemy trasy wszystkich pasażerów, którzy zaakceptowali tego kierowcę
+  Object.values(usersData).forEach(u => {
+    if(u.role === 'passenger' && Array.isArray(u.acceptedBy) && u.acceptedBy.includes(userNumber) && u.start && u.end){
+      const pStart = parseCell(u.start);
+      const pEnd = parseCell(u.end);
+
+      // trasa pasażera
+      drawRoute(pStart, pEnd, 'green');
+
+      // wspólne pola
+      const shared = getSharedCells(gridStart, gridEnd, pStart, pEnd);
+      shared.forEach(cell => {
+        gridEl.rows[cell.r+1].cells[cell.c+1].classList.add('sharedCell');
       });
     }
+  });
+}
+
 
     // dla pasażera
 if(role==='passenger' && gridStart && gridEnd){
