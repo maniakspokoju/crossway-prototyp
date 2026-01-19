@@ -19,7 +19,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 2.0</h1>
+															<h1>Crossway – Szachownica 2.1</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -353,7 +353,11 @@ acceptBtn.onclick = () => {
   const driver = matchedDrivers[selectedDriverIndex];
   acceptedDriverId = driver.id; // zapisujemy zaakceptowanego kierowcę
 
-  // aktualizacja w Firebase (tablica acceptedBy)
+  // 🔹 zapis w pasażerze: którego kierowcę zaakceptował
+  const passengerRef = db.ref("users/" + userId + "/acceptedDriverId");
+  passengerRef.set(driver.id);
+
+  // opcjonalnie: dla kierowcy też możemy aktualizować listę pasażerów
   const driverRef = db.ref("users/" + driver.id + "/acceptedBy");
   driverRef.transaction(current => {
     if(!current) return [userNumber];
@@ -366,6 +370,7 @@ acceptBtn.onclick = () => {
   nextDriverBtn.disabled = true;
   acceptBtn.disabled = true;
 };
+
 
 
 
@@ -398,8 +403,9 @@ acceptBtn.onclick = () => {
   });
 
   // ===== SPRAWDZENIE, KTÓRY PASAŻER ZOSTAŁ PRZYDZIELONY KIEROWCY =====
-  if(role==='driver' && userNumber!=null){
-    const assignedPassengers = passengers.filter(p => Array.isArray(p.acceptedBy) && p.acceptedBy.includes(userNumber));
+if(role==='driver' && userNumber!=null){
+    const assignedPassengers = Object.values(usersData)
+      .filter(u => u.role==='passenger' && u.acceptedDriverId==userId);
     const assignedDiv = document.getElementById('assignedPassenger');
     if(assignedPassengers.length > 0){
       assignedDiv.textContent = "Przydzielony pasażer: #" + assignedPassengers.map(p=>p.number).join(', ');
@@ -407,6 +413,7 @@ acceptBtn.onclick = () => {
       assignedDiv.textContent = "Brak przydzielonych pasażerów";
     }
   }
+
 
   // natychmiastowe dopasowanie pasażera (dla pasażera)
   if(role==='passenger' && gridStart){
