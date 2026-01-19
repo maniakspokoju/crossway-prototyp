@@ -19,7 +19,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 2.1</h1>
+															<h1>Crossway – Szachownica 2.2</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -241,9 +241,9 @@ if(role==='driver' && gridStart && gridEnd){
   // własna trasa kierowcy
   drawRoute(gridStart, gridEnd, driverColors[userId] || 'blue');
 
-  // rysujemy trasy wszystkich pasażerów, którzy zaakceptowali tego kierowcę
+  // rysujemy trasę wszystkich pasażerów, którzy zaakceptowali tego kierowcę
   Object.values(usersData).forEach(u => {
-    if(u.role === 'passenger' && Array.isArray(u.acceptedBy) && u.acceptedBy.includes(userNumber) && u.start && u.end){
+    if(u.role === 'passenger' && u.acceptedDriverId == userId && u.start && u.end){
       const pStart = parseCell(u.start);
       const pEnd = parseCell(u.end);
 
@@ -258,6 +258,7 @@ if(role==='driver' && gridStart && gridEnd){
     }
   });
 }
+
 
 
     // dla pasażera
