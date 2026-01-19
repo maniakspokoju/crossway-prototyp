@@ -21,7 +21,7 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
 </head>
 <body>
 
-																	<h1>Crossway – Szachownica 1.2</h1>
+																	<h1>Crossway – Szachownica 1.3</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -197,7 +197,20 @@ function assignUserNumber(callback){
     return color;
   }
 
-  function updateGrid(){
+function clearGridVisuals() {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = gridEl.rows[r + 1].cells[c + 1];
+      cell.style.backgroundColor = '';
+      cell.className = '';
+    }
+  }
+}
+
+
+function updateGrid(){
+  clearGridVisuals();
+
     // reset
     for(let r=0;r<ROWS;r++)
       for(let c=0;c<COLS;c++)
