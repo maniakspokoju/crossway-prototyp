@@ -21,7 +21,7 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
 </head>
 <body>
 
-																	<h1>Crossway – Szachownica 1.0</h1>
+																	<h1>Crossway – Szachownica 1.2</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -307,10 +307,11 @@ function assignUserNumber(callback){
 
   // ====== DANE FIREBASE ======
   function refreshUsers(snapshot){
-    passengersOrder = Object.values(usersData)
-  .filter(u => u.role === 'passenger' && u.number)
+passengersOrder = Object.values(usersData)
+  .filter(u => u.role === 'passenger')
   .sort((a,b)=>a.number-b.number)
   .map(u => u.number);
+
 
     usersData = snapshot.val() || {};
     // kolory kierowców
