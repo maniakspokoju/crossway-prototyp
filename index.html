@@ -21,7 +21,7 @@ Czytelne, bez dzielonych pól, akceptacja nie działa,
 </head>
 <body>
 
-																	<h1>Crossway – Szachownica 1.6</h1>
+																	<h1>Crossway – Szachownica 1.5</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -238,23 +238,19 @@ function updateGrid(){
     }
 
     // dla pasażera
-if(role==='passenger' && gridStart && gridEnd){
-  // zawsze rysujemy własną trasę pasażera
-  drawRoute(gridStart, gridEnd, 'passengerCell');
-
-  // jeśli istnieje dopasowany kierowca, rysujemy dodatkowo jego trasę i wspólne pola
-  if(matchedDrivers[selectedDriverIndex]){
-    const driver = matchedDrivers[selectedDriverIndex];
-    const dStart = parseCell(driver.start);
-    const dEnd = parseCell(driver.end);
-    drawRoute(dStart, dEnd, driver.color || 'blue');
-
-    const shared = getSharedCells(gridStart, gridEnd, dStart, dEnd);
-    shared.forEach(cell => {
-      gridEl.rows[cell.r + 1].cells[cell.c + 1].classList.add('sharedCell');
-    });
-  }
+if(role==='passenger' && gridStart && gridEnd && matchedDrivers[selectedDriverIndex]){
+  // własna trasa
+  drawRoute(gridStart,gridEnd,'passengerCell');
+  const driver = matchedDrivers[selectedDriverIndex];
+  const dStart=parseCell(driver.start);
+  const dEnd=parseCell(driver.end);
+  drawRoute(dStart,dEnd,driver.color || 'blue');
+  // wspólne pola
+  const shared = getSharedCells(gridStart,gridEnd,dStart,dEnd);
+  shared.forEach(cell=>{ gridEl.rows[cell.r+1].cells[cell.c+1].classList.add('sharedCell'); 
+	});
 }
+
 
 
   function drawRoute(start,end,className){
