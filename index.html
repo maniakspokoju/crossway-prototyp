@@ -19,7 +19,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 2.3</h1>
+															<h1>Crossway – Szachownica 2.4</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -421,15 +421,7 @@ if(role==='passenger' && gridStart){
   selectedDriverIndex=0;
 }
 
-// 🔹 aktualizacja trasy u kierowcy: jeśli ktoś zaakceptował jego trasę, pokazujemy tylko tego pasażera
-if(role==='driver'){
-  Object.values(usersData).forEach(p => {
-    if(p.role==='passenger' && p.acceptedDriverId == userId && p.start && p.end){
-      gridStart = parseCell(p.start);
-      gridEnd = parseCell(p.end);
-    }
-  });
-}
+
 
 updateUsersTable();
 updateGrid();
