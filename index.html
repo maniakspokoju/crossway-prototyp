@@ -19,7 +19,7 @@
 </head>
 <body>
 
-																	<h1>Crossway – Szachownica 1.8</h1>
+																	<h1>Crossway – Szachownica 1.9</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -74,6 +74,8 @@
   let matchedDrivers = [];
   let selectedDriverIndex = 0;
   let passengersOrder = []; // [1,2,3...] – kolejność pasażerów
+  let acceptedDriverId = null; // ID kierowcy zaakceptowanego przez pasażera
+
  
 
 
@@ -245,11 +247,11 @@ function updateGrid(){
 
     // dla pasażera
 if(role==='passenger' && gridStart && gridEnd){
-  // zawsze rysujemy własną trasę pasażera
+  // zawsze własna trasa pasażera
   drawRoute(gridStart, gridEnd, 'passengerCell');
 
-  // jeśli istnieje dopasowany kierowca, rysujemy dodatkowo jego trasę i wspólne pola
-  if(matchedDrivers[selectedDriverIndex]){
+  // jeśli jeszcze nie zaakceptował – rysujemy trasę aktualnie wybranego kierowcy
+  if(!acceptedDriverId && matchedDrivers[selectedDriverIndex]){
     const driver = matchedDrivers[selectedDriverIndex];
     const dStart = parseCell(driver.start);
     const dEnd = parseCell(driver.end);
@@ -260,8 +262,23 @@ if(role==='passenger' && gridStart && gridEnd){
       gridEl.rows[cell.r + 1].cells[cell.c + 1].classList.add('sharedCell');
     });
   }
-}
+
+  // jeśli zaakceptował – rysujemy tylko trasę zaakceptowanego kierowcy + wspólne pola
+  if(acceptedDriverId){
+    const driver = usersData[acceptedDriverId];
+    if(driver && driver.start && driver.end){
+      const dStart = parseCell(driver.start);
+      const dEnd = parseCell(driver.end);
+      drawRoute(dStart, dEnd, driver.color || 'blue');
+
+      const shared = getSharedCells(gridStart, gridEnd, dStart, dEnd);
+      shared.forEach(cell => {
+        gridEl.rows[cell.r + 1].cells[cell.c + 1].classList.add('sharedCell');
+      });
+    }
   }
+}
+
 
   function drawRoute(start,end,className){
     const color = className==='driverCell' ? 'blue' : className==='passengerCell' ? 'green' : className;
@@ -319,21 +336,22 @@ acceptBtn.onclick = () => {
   if(role !== 'passenger') return;
 
   const driver = matchedDrivers[selectedDriverIndex];
-  const passengerNumber = userNumber;
+  acceptedDriverId = driver.id; // zapisujemy zaakceptowanego kierowcę
 
-  // 1️⃣ Aktualizujemy acceptedBy jako tablicę pasażerów
+  // aktualizacja w Firebase (tablica acceptedBy)
   const driverRef = db.ref("users/" + driver.id + "/acceptedBy");
   driverRef.transaction(current => {
-    if(!current) return [passengerNumber];
-    if(!current.includes(passengerNumber)) current.push(passengerNumber);
+    if(!current) return [userNumber];
+    if(!current.includes(userNumber)) current.push(userNumber);
     return current;
   });
 
-  // 2️⃣ Dezaktywujemy wszystkie przyciski pasażera poza "Zakończ przejazd"
+  // dezaktywacja przycisków
   prevDriverBtn.disabled = true;
   nextDriverBtn.disabled = true;
   acceptBtn.disabled = true;
 };
+
 
 
   resetBtn.onclick = ()=>{
