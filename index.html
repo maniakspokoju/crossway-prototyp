@@ -19,7 +19,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 2.5</h1>
+															<h1>Crossway – Szachownica 2.4</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -321,42 +321,6 @@ if(role==='passenger' && gridStart && gridEnd){
     return cells1.filter(c1=>cells2.some(c2=>c1.r===c2.r && c1.c===c2.c));
   }
 
-function isSameDirection(driverStart, driverEnd, passengerStart, passengerEnd) {
-  // generujemy pełną trasę kierowcy (w kolejności)
-  const driverRoute = (driverStart.r === driverEnd.r)
-    ? Array.from(
-        { length: Math.abs(driverEnd.c - driverStart.c) + 1 },
-        (_, i) => ({
-          r: driverStart.r,
-          c: driverStart.c < driverEnd.c
-            ? driverStart.c + i
-            : driverStart.c - i
-        })
-      )
-    : Array.from(
-        { length: Math.abs(driverEnd.r - driverStart.r) + 1 },
-        (_, i) => ({
-          r: driverStart.r < driverEnd.r
-            ? driverStart.r + i
-            : driverStart.r - i,
-          c: driverStart.c
-        })
-      );
-
-  const startIdx = driverRoute.findIndex(
-    c => c.r === passengerStart.r && c.c === passengerStart.c
-  );
-  const endIdx = driverRoute.findIndex(
-    c => c.r === passengerEnd.r && c.c === passengerEnd.c
-  );
-
-  if (startIdx === -1 || endIdx === -1) return false;
-
-  // 🔑 KLUCZOWY WARUNEK
-  return endIdx > startIdx;
-}
-
-
   // ====== PRZYCISKI ======
   driverBtn.onclick = ()=>{
     role='driver';
@@ -442,25 +406,18 @@ Object.entries(usersData).forEach(([id,u])=>{
 // natychmiastowe dopasowanie pasażera
 if(role==='passenger' && gridStart){
   matchedDrivers = Object.entries(usersData)
-.filter(([id,u]) => {
-  const pStart = gridStart;
-  const pEnd = gridEnd;
-  if (!pStart || !pEnd) return false;
-
-  const dStart = parseCell(u.start);
-  const dEnd = parseCell(u.end);
-
-  // 1️⃣ czy pasażer wchodzi na trasę kierowcy
-  const cells = (dStart.r === dEnd.r)
-    ? Array.from({length:Math.abs(dEnd.c-dStart.c)+1},(_,i)=>({r:dStart.r,c:Math.min(dStart.c,dEnd.c)+i}))
-    : Array.from({length:Math.abs(dEnd.r-dStart.r)+1},(_,i)=>({r:Math.min(dStart.r,dEnd.r)+i,c:dStart.c}));
-
-  const entersRoute = cells.some(c => c.r === pStart.r && c.c === pStart.c);
-  if (!entersRoute) return false;
-
-  // 2️⃣ SPRAWDZENIE KIERUNKU
-  return isSameDirection(dStart, dEnd, pStart, pEnd);
-}).map(([id,u])=>({id,...u}));
+    .filter(([id,u])=> u.role==='driver' && u.start && u.end)
+    // 🔹 filtrujemy kierowców już zaakceptowanych przez innych pasażerów
+    .filter(([id,u]) => !Object.values(usersData).some(p => p.role==='passenger' && p.acceptedDriverId === id))
+    .filter(([id,u])=>{
+      const ps = gridStart;
+      const dStart=parseCell(u.start);
+      const dEnd=parseCell(u.end);
+      const cells = (dStart.r===dEnd.r)
+        ? Array.from({length:Math.abs(dEnd.c-dStart.c)+1},(_,i)=>({r:dStart.r,c:Math.min(dStart.c,dEnd.c)+i}))
+        : Array.from({length:Math.abs(dEnd.r-dStart.r)+1},(_,i)=>({r:Math.min(dStart.r,dEnd.r)+i,c:dStart.c}));
+      return cells.some(c=>c.r===ps.r && c.c===ps.c);
+    }).map(([id,u])=>({id,...u}));
   selectedDriverIndex=0;
 }
 
