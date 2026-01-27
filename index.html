@@ -1,3 +1,5 @@
+Działa - gotowy plik SZACHOWNICA
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -19,7 +21,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 2.4</h1>
+															<h1>Crossway – Szachownica 2.5</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -189,6 +191,25 @@ function saveRoute(){
     nextDriverBtn.disabled = true;
     acceptBtn.disabled = true;
   }
+}
+
+function isSameDirection(driverStart, driverEnd, passengerStart, passengerEnd){
+  // tylko trasy w linii prostej (tak jak w Twoim programie)
+  if(driverStart.r === driverEnd.r){
+    // poziomo
+    const dirDriver = Math.sign(driverEnd.c - driverStart.c);
+    const dirPassenger = Math.sign(passengerEnd.c - passengerStart.c);
+    return dirDriver === dirPassenger;
+  }
+
+  if(driverStart.c === driverEnd.c){
+    // pionowo
+    const dirDriver = Math.sign(driverEnd.r - driverStart.r);
+    const dirPassenger = Math.sign(passengerEnd.r - passengerStart.r);
+    return dirDriver === dirPassenger;
+  }
+
+  return false;
 }
 
 
@@ -416,7 +437,12 @@ if(role==='passenger' && gridStart){
       const cells = (dStart.r===dEnd.r)
         ? Array.from({length:Math.abs(dEnd.c-dStart.c)+1},(_,i)=>({r:dStart.r,c:Math.min(dStart.c,dEnd.c)+i}))
         : Array.from({length:Math.abs(dEnd.r-dStart.r)+1},(_,i)=>({r:Math.min(dStart.r,dEnd.r)+i,c:dStart.c}));
-      return cells.some(c=>c.r===ps.r && c.c===ps.c);
+      if(!cells.some(c => c.r === ps.r && c.c === ps.c)) return false;
+
+const pe = gridEnd;
+if(!pe) return false;
+
+return isSameDirection(dStart, dEnd, ps, pe);
     }).map(([id,u])=>({id,...u}));
   selectedDriverIndex=0;
 }
