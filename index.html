@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.4.5</h1>
+															<h1>Crossway – Szachownica 5.4.6</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -211,7 +211,6 @@ if (role === 'driver' && !myColor) {
 
 const color = role === 'driver' ? myColor : null;
 
-
 db.ref("users/"+userId).set({
   number: userNumber,
   role,
@@ -220,6 +219,7 @@ db.ref("users/"+userId).set({
   color,
   acceptedBy: null
 });
+
 
 // ⬇⬇⬇ DOKŁADNIE TUTAJ
 tryCreateMyMarker();
@@ -261,18 +261,18 @@ function assignUserNumber(callback){
       userNumber = snapshot.val();
       userId = String(userNumber);
 
-      // 🔹 od razu zapis w Firebase z pustą trasą (start/end null)
-      const color = role === 'driver' ? getRandomColor() : 'green';
-      myColor = color;
+// w assignUserNumber callback
+myColor = role === 'driver' ? getRandomColor() : 'green';
 
-      db.ref("users/" + userId).set({
-        number: userNumber,
-        role: role,
-        start: null,
-        end: null,
-        color: color,
-        acceptedBy: null
-      });
+db.ref("users/" + userId).set({
+  number: userNumber,
+  role: role,
+  start: null,
+  end: null,
+  color: myColor,
+  acceptedBy: null
+});
+
 
       // 🔹 od razu wyświetl w tabeli
       updateUsersTable();
