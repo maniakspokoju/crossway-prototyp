@@ -105,7 +105,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.1.6</h1>
+																<h1>Crossway – fundament 5.1.7</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -523,7 +523,7 @@ saveDriverDestinationBtn.onclick = () => {
 
   // Tryb zapisu
   if (selectedPoint) {
-    db.ref("session/driver/destination").set({
+  db.ref(`session/users/${userId}/destination`).set({
       latitude: selectedPoint[0],
       longitude: selectedPoint[1]
     });
@@ -543,7 +543,7 @@ saveDestinationBtn.onclick = () => {
   }
 
   if (selectedPoint) {
-    db.ref("session/passenger/destination").set({
+db.ref(`session/users/${userId}/destination`).set({
       latitude: selectedPoint[0],
       longitude: selectedPoint[1]
     });
