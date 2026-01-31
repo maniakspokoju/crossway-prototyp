@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.4.1</h1>
+															<h1>Crossway – Szachownica 5.4.5</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -256,17 +256,32 @@ function isSameDirection(driverStart, driverEnd, passengerStart, passengerEnd){
 
 function assignUserNumber(callback){
   const ref = db.ref("meta/nextUserNumber");
-  ref.transaction(current => {
-    return (current || 0) + 1;
-  }, (error, committed, snapshot) => {
-if(committed){
-  userNumber = snapshot.val();
-  userId = String(userNumber);
-  tryCreateMyMarker();
-  callback();
-}
+  ref.transaction(current => (current || 0) + 1, (error, committed, snapshot) => {
+    if(committed){
+      userNumber = snapshot.val();
+      userId = String(userNumber);
+
+      // 🔹 od razu zapis w Firebase z pustą trasą (start/end null)
+      const color = role === 'driver' ? getRandomColor() : 'green';
+      myColor = color;
+
+      db.ref("users/" + userId).set({
+        number: userNumber,
+        role: role,
+        start: null,
+        end: null,
+        color: color,
+        acceptedBy: null
+      });
+
+      // 🔹 od razu wyświetl w tabeli
+      updateUsersTable();
+
+      if(callback) callback();
+    }
   });
 }
+
 
 
   function getRandomColor(){
