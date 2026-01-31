@@ -1,7 +1,3 @@
-Szachownica do map - marker w kolorze
-
-Szachownica - fundament/oryginał/perfekt
-
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -41,7 +37,7 @@ Szachownica - fundament/oryginał/perfekt
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.3.3</h1>
+															<h1>Crossway – Szachownica 5.3.4</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -582,7 +578,7 @@ tr.innerHTML = `
   db.ref("users").on('value',refreshUsers);
 
 // ====== MAPA ======
-const map = L.map('map'); // ❗ bez setView
+const map = L.map('map');
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap'
