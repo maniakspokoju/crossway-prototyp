@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.3.9</h1>
+															<h1>Crossway – Szachownica 5.4.0</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -638,21 +638,17 @@ function centerMapOnUser() {
 map.on('click', e => {
   if (!goalEditMode) return;
 
-  goalLocation = {
-    lat: e.latlng.lat,
-    lng: e.latlng.lng
-  };
+  if (startMarker) {
+    const startLatLng = startMarker.getLatLng();
+    const endLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
+    const color = role === 'driver' ? driverColors[userId] : 'green';
+    drawRouteOnMap(startLatLng, endLatLng, color, role);
 
-if (startMarker && goalEditMode) {
-  const startLatLng = startMarker.getLatLng();
-  const endLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
-  const color = role === 'driver' ? driverColors[userId] : 'green';
-  drawRouteOnMap(startLatLng, endLatLng, color, role);
-
-  if (!goalMarker) {
-    goalMarker = L.marker([endLatLng.lat, endLatLng.lng]).addTo(map);
-  } else {
-    goalMarker.setLatLng([endLatLng.lat, endLatLng.lng]);
+    if (!goalMarker) {
+      goalMarker = L.marker([endLatLng.lat, endLatLng.lng]).addTo(map);
+    } else {
+      goalMarker.setLatLng([endLatLng.lat, endLatLng.lng]);
+    }
   }
 });
 
