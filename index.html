@@ -35,10 +35,11 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.min.js"></script>
+<script type="module" src="webpage_content_reporter.js"></script>
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.3.7</h1>
+															<h1>Crossway – Szachownica 5.3.8</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -109,6 +110,8 @@
   let goalMarker = null;     // marker celu
   let goalLocation = null;   // { lat, lng }
   let routeControl = null; // globalny obiekt trasy
+  let startMarker = null;  // marker startu użytkownika
+
 
 
 
@@ -316,15 +319,27 @@ function getUserLocation() {
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(pos => {
-    userLocation = {
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude
-    };
-    tryCreateMyMarker();
-  }, err => {
-    alert("Nie udało się pobrać lokalizacji");
-  });
+navigator.geolocation.getCurrentPosition(pos => {
+  const lat = pos.coords.latitude;
+  const lng = pos.coords.longitude;
+
+  userLocation = { lat, lng };
+
+  // 🔹 utworzenie lub przesunięcie markera startu
+  if (!startMarker) {
+    startMarker = L.marker([lat, lng], { color: role === 'driver' ? driverColors[userId] : 'green' })
+                  .addTo(map)
+                  .bindPopup('Start');
+  } else {
+    startMarker.setLatLng([lat, lng]);
+  }
+
+  // 🔹 oryginalna funkcja tworząca marker użytkownika
+  tryCreateMyMarker();
+
+}, err => {
+  alert("Nie udało się pobrać lokalizacji");
+});
 }
 
 function clearGridVisuals() {
