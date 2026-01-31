@@ -23,7 +23,7 @@ Szachownica - fundament/oryginał/perfekt
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.2.7</h1>
+															<h1>Crossway – Szachownica 5.2.8</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -177,22 +177,21 @@ function passengerOnDriverRoute(passenger, driver){
 
 function saveRoute(){
   if(!userId){
-    assignUserNumber(saveRoute);
+    assignUserNumber(role, saveRoute);
     return;
   }
 
   const start = `${gridStart.r},${gridStart.c}`;
   const end = `${gridEnd.r},${gridEnd.c}`;
-  const color = role==='driver' ? getRandomColor() : null;
+  const color = userColors[userId]; // kolor już wylosowany
 
-  db.ref("users/"+userId).set({
-    number: userNumber,
-    role,
+  db.ref("users/"+userId).update({
     start,
     end,
-    color,
-    acceptedBy: null
+    color
   });
+}
+
 
   // 🔹 dezaktywacja przycisków po ustaleniu trasy kierowcy
   if(role === 'driver') {
@@ -223,27 +222,38 @@ function isSameDirection(driverStart, driverEnd, passengerStart, passengerEnd){
 
 
 
-function assignUserNumber(callback){
+function assignUserNumber(role, callback){
   const ref = db.ref("meta/nextUserNumber");
-  ref.transaction(current => {
-    return (current || 0) + 1;
-  }, (error, committed, snapshot) => {
+  ref.transaction(current => (current || 0) + 1, (error, committed, snapshot) => {
     if(committed){
       userNumber = snapshot.val();
-      userId = String(userNumber); // ID = "1", "2", "3"
-      callback();
+      userId = String(userNumber);
+
+      // 🔹 wylosowany kolor
+      const color = getRandomColor();
+      userColors[userId] = color;
+
+      // zapis w Firebase
+      db.ref("users/"+userId).set({
+        number: userNumber,
+        role: role,
+        start: null,
+        end: null,
+        color: color,
+        acceptedBy: null
+      });
+
+      // 🔹 pobranie lokalizacji i ustawienie markera dopiero teraz
+      navigator.geolocation.getCurrentPosition(p => {
+        const lat = p.coords.latitude;
+        const lng = p.coords.longitude;
+        addUserMarker(userId, userNumber, color, lat, lng);
+      });
+
+      if(callback) callback();
     }
   });
 }
-
-navigator.geolocation.getCurrentPosition(p => {
-  const lat = p.coords.latitude;
-  const lng = p.coords.longitude;
-
-  const color = driverColors[userId]; // zawsze używamy wylosowanego koloru
-  addUserMarker(userId, userNumber, color, lat, lng);
-});
-
 
 
 
