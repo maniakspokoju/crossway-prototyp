@@ -1,3 +1,5 @@
+Szachownica do map - marker w kolorze
+
 Szachownica - fundament/oryginał/perfekt
 
 <!DOCTYPE html>
@@ -39,7 +41,7 @@ Szachownica - fundament/oryginał/perfekt
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.3.2</h1>
+															<h1>Crossway – Szachownica 5.3.3</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -579,15 +581,31 @@ tr.innerHTML = `
 
   db.ref("users").on('value',refreshUsers);
 
-// ====== MAPA (TYLKO PODGLĄD) ======
-const map = L.map('map').setView([52.23, 21.01], 13); // Warszawa jako placeholder
+// ====== MAPA ======
+const map = L.map('map'); // ❗ bez setView
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap'
 }).addTo(map);
 
-  // ====== START ======
-  initGrid();
+// fallback (gdy GPS niedostępny)
+map.setView([52.23, 21.01], 13);
+
+// ====== CENTROWANIE MAPY NA UŻYTKOWNIKU ======
+function centerMapOnUser() {
+  if (!navigator.geolocation) return;
+
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    map.setView([lat, lng], 14);
+  });
+}
+
+// ====== START ======
+initGrid();
+centerMapOnUser();
 </script>
 </body>
 </html>
