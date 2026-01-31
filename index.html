@@ -37,7 +37,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.3.4</h1>
+															<h1>Crossway – Szachownica 5.3.5</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -68,8 +68,6 @@
    <tr id="usersHeader">
   <th>ID</th>
   <th>Kolor</th>
-  <th>Start</th>
-  <th>Cel</th>
 </tr>
 
   </thead>
@@ -166,8 +164,6 @@ function updateUsersHeader(){
     <tr>
       <th>#</th>
       <th>Kolor</th>
-      <th>Start</th>
-      <th>Cel</th>
       ${passengersOrder.map(n => `<th>${n}</th>`).join('')}
     </tr>
   `;
@@ -561,8 +557,6 @@ function updateUsersTable(){
 tr.innerHTML = `
   <td>${driver.number}</td>
   <td style="background:${driver.color||''}"></td>
-  <td>${driver.start||''}</td>
-  <td>${driver.end||''}</td>
   ${passengersOrder.map(pNum=>{
     const p = passengers.find(x=>x.number===pNum);
     return `<td>${p && passengerOnDriverRoute(p,driver) ? 'O' : ''}</td>`;
