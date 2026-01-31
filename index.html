@@ -120,7 +120,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.2.1</h1>
+																<h1>Crossway – fundament 5.2.2</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -473,7 +473,6 @@ function updateUsersTable(usersData) {
 /* ================= ROLE ================= */
 let userId = null; // globalny ID użytkownika
 let userNumber = null;
-let currentRole = null; // driver | passenger
 const driverColors = {}; // kolory kierowców
 
 async function assign(role) {
@@ -493,12 +492,13 @@ async function assign(role) {
       // zapis do Firebase
 db.ref(`session/users/${userId}`).set({
   role: role,
-  userNumber: nextNumber,
+  userNumber: userNumber,
   color: color,
   currentLocation: null,
   destination: null,
-  acceptedBy: null  // zamiast accepted
+  acceptedBy: null
 });
+
 
 
       // pobranie lokalizacji i ustawienie markera
