@@ -1,3 +1,5 @@
+Szachownica do map - dwa markery startu
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -38,7 +40,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.4.9</h1>
+															<h1>Crossway – Szachownica 5.4.0</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -449,32 +451,25 @@ if(role==='passenger' && gridStart && gridEnd){
   }
 
   // ====== PRZYCISKI ======
-driverBtn.onclick = () => {
-  role = 'driver';
-  document.body.style.backgroundColor = "#ddeeff";
-  driverBtn.disabled = true; passengerBtn.disabled = true;
+driverBtn.onclick = ()=>{
+  role='driver';
+  gridStart=null; gridEnd=null;
+  document.body.style.backgroundColor="#ddeeff";
+  driverBtn.disabled=true; passengerBtn.disabled=true;
+  initGrid();
 
-  // natychmiastowy numer i kolor
-  assignUserNumber(() => {
-    myColor = getRandomColor(); // losowy kolor kierowcy
-    updateUsersTable();          // od razu dodajemy do tabeli
-  });
-
-  getUserLocation(); // pobieramy GPS
+  getUserLocation(); // ⬅ GPS
 };
 
-passengerBtn.onclick = () => {
-  role = 'passenger';
-  document.body.style.backgroundColor = "#ddffdd";
-  driverBtn.disabled = true; passengerBtn.disabled = true;
+passengerBtn.onclick = ()=>{
+  role='passenger';
+  gridStart=null; gridEnd=null;
+  document.body.style.backgroundColor="#ddffdd";
+  driverBtn.disabled=true; passengerBtn.disabled=true;
+  initGrid();
 
-  // natychmiastowy numer i kolor
-  assignUserNumber(() => {
-    myColor = 'green';           // stały kolor pasażera
-    updateUsersTable();          // od razu dodajemy do tabeli
-  });
-
-  getUserLocation(); // pobieramy GPS
+  myColor = 'green'; // ⬅ STAŁY kolor pasażera
+  getUserLocation(); // ⬅ GPS
 };
 
 
