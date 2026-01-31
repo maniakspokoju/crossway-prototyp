@@ -105,7 +105,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.1.5</h1>
+																<h1>Crossway – fundament 5.1.6</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -303,11 +303,28 @@ async function update() {
   passengerLine.setLatLngs([]);
   overlapLine.setLatLngs([]);
 
-  const ds = (await db.ref("session/driver").once("value")).val();
-  const ps = (await db.ref("session/passenger").once("value")).val();
+  const usersSnap = await db.ref("session/users").once("value");
+  const users = usersSnap.val() || {};
+
+  const driver = Object.values(users).find(u => u.role === "driver");
+  const passenger = Object.values(users).find(u => u.role === "passenger");
+
+  // ❗ najpierw sprawdzamy istnienie ról
+  if (!driver || !passenger) return;
+
+  // ❗ potem kompletność danych
+  if (
+    !driver.currentLocation ||
+    !driver.destination ||
+    !passenger.currentLocation ||
+    !passenger.destination
+  ) {
+    return;
+  }
 
   let dPath = null;
   let pPath = null;
+
 
   /* ================= TRASA KIEROWCY (ZAWSZE) ================= */
   if (ds?.currentLocation && ds?.destination) {
