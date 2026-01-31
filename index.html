@@ -105,7 +105,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.0.0</h1>
+																<h1>Crossway – fundament 5.0.1</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -145,6 +145,24 @@ html, body {
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
+
+// ====== UNIKALNY USER ID ======
+let userId = null;
+let userNumber = null;
+
+function assignUserNumber(callback){
+  const ref = db.ref("meta/nextUserNumber");
+  ref.transaction(current => {
+    return (current || 0) + 1;
+  }, (error, committed, snapshot) => {
+    if(committed){
+      userNumber = snapshot.val();
+      userId = String(userNumber); // ID = "1", "2", "3"...
+      console.log("Przydzielono userId:", userId);
+      callback(); // kontynuacja, np. zapis trasy
+    }
+  });
+}
 
 
 function showStartMarker(role, lat, lng) {
@@ -490,23 +508,25 @@ function updateRoleAvailability() {
 // });
 
 
-
-
-
 // Kierowca – cel
 saveDriverDestinationBtn.onclick = () => {
+  if(!userId){
+    assignUserNumber(saveDriverDestinationBtn.onclick);
+    return;
+  }
+
   if (!editingDriverDestination) {
-    // Włącz tryb edycji
     editingDriverDestination = true;
     saveDriverDestinationBtn.innerText = "Zapisz cel";
     return;
   }
 
-  // Tryb zapisu
   if (selectedPoint) {
-    db.ref("session/driver/destination").set({
-      latitude: selectedPoint[0],
-      longitude: selectedPoint[1]
+    db.ref("users/"+userId).set({
+      number: userNumber,
+      role: "driver",
+      destination: { latitude: selectedPoint[0], longitude: selectedPoint[1] },
+      currentLocation: null, // opcjonalnie, można wypełnić aktualną lokalizacją
     });
   }
 
@@ -514,6 +534,7 @@ saveDriverDestinationBtn.onclick = () => {
   saveDriverDestinationBtn.innerText = "Edytuj cel";
   selectedPoint = null;
 };
+
 
 // Pasażer – cel
 saveDestinationBtn.onclick = () => {
@@ -523,10 +544,14 @@ saveDestinationBtn.onclick = () => {
     return;
   }
 
+  if(!userId){
+    assignUserNumber(saveDestinationBtn.onclick);
+    return;
+  }
+
   if (selectedPoint) {
-    db.ref("session/passenger/destination").set({
-      latitude: selectedPoint[0],
-      longitude: selectedPoint[1]
+    db.ref("users/" + userId).update({
+      destination: { latitude: selectedPoint[0], longitude: selectedPoint[1] }
     });
   }
 
@@ -534,6 +559,7 @@ saveDestinationBtn.onclick = () => {
   saveDestinationBtn.innerText = "Edytuj cel";
   selectedPoint = null;
 };
+
 
 // Pasażer – start
 saveStartBtn.onclick = () => {
@@ -543,10 +569,14 @@ saveStartBtn.onclick = () => {
     return;
   }
 
+  if(!userId){
+    assignUserNumber(saveStartBtn.onclick);
+    return;
+  }
+
   if (selectedPoint) {
-    db.ref("session/passenger/currentLocation").set({
-      latitude: selectedPoint[0],
-      longitude: selectedPoint[1]
+    db.ref("users/" + userId).update({
+      currentLocation: { latitude: selectedPoint[0], longitude: selectedPoint[1] }
     });
   }
 
