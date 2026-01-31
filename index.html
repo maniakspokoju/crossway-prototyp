@@ -23,7 +23,7 @@ Szachownica - fundament/oryginał/perfekt
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.2.8</h1>
+															<h1>Crossway – Szachownica 5.2.9</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -229,11 +229,9 @@ function assignUserNumber(role, callback){
       userNumber = snapshot.val();
       userId = String(userNumber);
 
-      // 🔹 wylosowany kolor
       const color = getRandomColor();
       userColors[userId] = color;
 
-      // zapis w Firebase
       db.ref("users/"+userId).set({
         number: userNumber,
         role: role,
@@ -243,17 +241,19 @@ function assignUserNumber(role, callback){
         acceptedBy: null
       });
 
-      // 🔹 pobranie lokalizacji i ustawienie markera dopiero teraz
-      navigator.geolocation.getCurrentPosition(p => {
-        const lat = p.coords.latitude;
-        const lng = p.coords.longitude;
-        addUserMarker(userId, userNumber, color, lat, lng);
-      });
+navigator.geolocation.getCurrentPosition(
+  p => {
+    const lat = p.coords.latitude;
+    const lng = p.coords.longitude;
+    addUserMarker(userId, userNumber, color, lat, lng);
+  },
+  () => {
+    // fallback
+    addUserMarker(userId, userNumber, color, 52.1, 19.9);
+  }
+);
 
-      if(callback) callback();
-    }
-  });
-}
+
 
 
 
@@ -283,8 +283,8 @@ function updateGrid(){
       for(let c=0;c<COLS;c++)
         gridEl.rows[r+1].cells[c+1].className='';
 
-    if(gridStart) gridEl.rows[gridStart.r+1].cells[gridStart.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
-    if(gridEnd) gridEl.rows[gridEnd.r+1].cells[gridEnd.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
+if(gridStart) gridEl.rows[gridStart.r+1].cells[gridStart.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
+if(gridEnd) gridEl.rows[gridEnd.r+1].cells[gridEnd.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
 
     // dla kierowcy rysujemy własną trasę
 if(role==='driver' && gridStart && gridEnd){
@@ -482,15 +482,15 @@ updateUsersTable();
 updateGrid();
 }
 
-// tworzymy mapę
+// tworzymy mapę globalnie
 const map = L.map("map").setView([52.1, 19.9], 12);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
 // obiekt do przechowywania markerów użytkowników
-const userMarkers = {};   // mapowanie userId -> marker
-const userColors = {};    // mapowanie userId -> kolor
+const userMarkers = {};
+const userColors = {};
 
-
+// funkcja dodająca marker
 function addUserMarker(userId, userNumber, color, lat, lng) {
   const icon = L.divIcon({
     html: `<div style='font-size:20px;font-weight:bold;color:${color}'>${userNumber}</div>`,
@@ -498,10 +498,10 @@ function addUserMarker(userId, userNumber, color, lat, lng) {
     iconSize: [20, 20],
     iconAnchor: [10, 10]
   });
-
   const marker = L.marker([lat, lng], { icon }).addTo(map);
   userMarkers[userId] = marker;
 }
+
 
 
 function updateUsersTable(){
