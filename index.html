@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.5.1</h1>
+															<h1>Crossway – Szachownica 5.5.2</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -259,17 +259,17 @@
     }).addTo(map);
   }
 
-  map.on('click',e=>{
-    if(!goalEditMode || !userLocation) return;
-    const endLatLng={lat:e.latlng.lat,lng:e.latlng.lng};
-    const color=role==='driver'?myColor:'green';
-    if(!goalMarker){
-      goalMarker=L.marker([endLatLng.lat,endLatLng.lng],{
-        icon:L.divIcon({className:'',html:`<div style="background:${color};color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:bold;border:2px solid #000;">🎯</div>`,iconSize:[26,26],iconAnchor:[13,13]})
-      }).addTo(map);
-    } else goalMarker.setLatLng([endLatLng.lat,endLatLng.lng]);
-    drawRouteOnMap(userLocation,endLatLng,color,role);
-  });
+map.on('click', e => {
+  if (!goalEditMode || !userLocation) return;
+
+  const endLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
+  const color = role === 'driver' ? myColor : 'green';
+
+  // 🔹 usuwamy goalMarker – nie tworzymy pinezki celu
+  // tylko rysujemy trasę od startu do klikniętego punktu
+  drawRouteOnMap(userLocation, endLatLng, color, role);
+});
+
 
   // ====== PRZYCISKI ======
   driverBtn.onclick = ()=>{
