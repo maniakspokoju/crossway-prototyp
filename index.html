@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.4.7</h1>
+															<h1>Crossway – Szachownica 5.4.8</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -294,8 +294,10 @@ db.ref("users/" + userId).set({
 function tryCreateMyMarker() {
   if (!map) return;
   if (!userId) return;
+  if (!userNumber) return;
+  if (!myColor) return;
   if (!userLocation) return;
-  if (myMarker) return;
+  if (myMarker) return; // ❗ nie tworzymy drugi raz
 
   const icon = L.divIcon({
     className: '',
@@ -316,7 +318,11 @@ function tryCreateMyMarker() {
     iconAnchor: [13,13]
   });
 
-  myMarker = L.marker([userLocation.lat, userLocation.lng], { icon }).addTo(map);
+  myMarker = L.marker(
+    [userLocation.lat, userLocation.lng],
+    { icon }
+  ).addTo(map);
+
   map.setView([userLocation.lat, userLocation.lng], 14);
 }
 
@@ -333,16 +339,32 @@ function getUserLocation() {
 
     userLocation = { lat, lng };
 
-    // 🔹 natychmiastowy marker użytkownika z numerem
-    tryCreateMyMarker();
+    // 🔹 jeśli marker jeszcze nie istnieje – tworzymy od razu marker numer + kolor
+    if (!myMarker) {
+      const icon = L.divIcon({
+        className: '',
+        html: `
+          <div style="
+            background:${myColor};
+            color:#fff;
+            width:26px;
+            height:26px;
+            border-radius:50%;
+            text-align:center;
+            line-height:26px;
+            font-weight:bold;
+            border:2px solid #000;
+          ">${userNumber}</div>
+        `,
+        iconSize: [26,26],
+        iconAnchor: [13,13]
+      });
 
-    // 🔹 marker startu (opcjonalnie popup)
-    if (!startMarker) {
-      startMarker = L.marker([lat, lng])
-                    .addTo(map)
-                    .bindPopup('Start');
+      myMarker = L.marker([lat, lng], { icon }).addTo(map);
+      map.setView([lat, lng], 14);
     } else {
-      startMarker.setLatLng([lat, lng]);
+      // jeśli marker już istnieje – tylko przesuwamy go
+      myMarker.setLatLng([lat, lng]);
     }
 
   }, err => {
