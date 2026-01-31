@@ -23,7 +23,7 @@ Szachownica - fundament/oryginał/perfekt
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.2.6</h1>
+															<h1>Crossway – Szachownica 5.2.7</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -240,9 +240,10 @@ navigator.geolocation.getCurrentPosition(p => {
   const lat = p.coords.latitude;
   const lng = p.coords.longitude;
 
-  const color = role === "driver" ? driverColors[userId] : "green"; // zielony dla pasażera
+  const color = driverColors[userId]; // zawsze używamy wylosowanego koloru
   addUserMarker(userId, userNumber, color, lat, lng);
 });
+
 
 
 
@@ -476,7 +477,8 @@ const map = L.map("map").setView([52.1, 19.9], 12);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
 // obiekt do przechowywania markerów użytkowników
-const userMarkers = {};
+const userMarkers = {};   // mapowanie userId -> marker
+const userColors = {};    // mapowanie userId -> kolor
 
 
 function addUserMarker(userId, userNumber, color, lat, lng) {
@@ -490,6 +492,7 @@ function addUserMarker(userId, userNumber, color, lat, lng) {
   const marker = L.marker([lat, lng], { icon }).addTo(map);
   userMarkers[userId] = marker;
 }
+
 
 function updateUsersTable(){
   updateUsersHeader();
