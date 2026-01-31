@@ -120,7 +120,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.2.2</h1>
+																<h1>Crossway – fundament 5.2.3</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -210,10 +210,6 @@ db.ref("session/users").on("value", snapshot => {
   update(); // odświeża linie na mapie
 });
 
-
-
-// Unikalny identyfikator dla każdego użytkownika (losowy)
-const userId = 'user_' + Math.random().toString(36).substr(2, 9);
 
 let currentMode = "A"; // A = przecięcia, B = optymalny dystans
 let accepted = false;
