@@ -23,7 +23,7 @@ Szachownica - fundament/oryginał/perfekt
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.2.9</h1>
+															<h1>Crossway – Szachownica 5.3.0</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -177,29 +177,31 @@ function passengerOnDriverRoute(passenger, driver){
 
 function saveRoute(){
   if(!userId){
-    assignUserNumber(role, saveRoute);
+    assignUserNumber(saveRoute);
     return;
   }
 
   const start = `${gridStart.r},${gridStart.c}`;
   const end = `${gridEnd.r},${gridEnd.c}`;
-  const color = userColors[userId]; // kolor już wylosowany
+  const color = role==='driver' ? driverColors[userId] : null; // już pewny kolor
 
-  db.ref("users/"+userId).update({
+  db.ref("users/"+userId).set({
+    number: userNumber,
+    role,
     start,
     end,
-    color
+    color,
+    acceptedBy: null
   });
-}
 
-
-  // 🔹 dezaktywacja przycisków po ustaleniu trasy kierowcy
-  if(role === 'driver') {
+  // dezaktywacja przycisków po ustaleniu trasy kierowcy
+  if(role==='driver') {
     prevDriverBtn.disabled = true;
     nextDriverBtn.disabled = true;
     acceptBtn.disabled = true;
   }
 }
+
 
 function isSameDirection(driverStart, driverEnd, passengerStart, passengerEnd){
   // tylko trasy w linii prostej (tak jak w Twoim programie)
@@ -222,36 +224,36 @@ function isSameDirection(driverStart, driverEnd, passengerStart, passengerEnd){
 
 
 
-function assignUserNumber(role, callback){
+function assignUserNumber(callback){
   const ref = db.ref("meta/nextUserNumber");
   ref.transaction(current => (current || 0) + 1, (error, committed, snapshot) => {
     if(committed){
       userNumber = snapshot.val();
-      userId = String(userNumber);
+      userId = String(userNumber); // ID = "1", "2", "3"
 
-      const color = getRandomColor();
-      userColors[userId] = color;
+      // 🔹 Generowanie koloru od razu dla kierowcy
+      if(role === 'driver') {
+        const color = getRandomColor();
+        driverColors[userId] = color;
 
-      db.ref("users/"+userId).set({
-        number: userNumber,
-        role: role,
-        start: null,
-        end: null,
-        color: color,
-        acceptedBy: null
-      });
+        // zapis w bazie od razu
+        db.ref("users/"+userId+"/color").set(color);
+      }
 
-navigator.geolocation.getCurrentPosition(
-  p => {
-    const lat = p.coords.latitude;
-    const lng = p.coords.longitude;
-    addUserMarker(userId, userNumber, color, lat, lng);
-  },
-  () => {
-    // fallback
-    addUserMarker(userId, userNumber, color, 52.1, 19.9);
-  }
-);
+      callback(); // teraz możemy bezpiecznie zapisać trasę i marker
+    }
+  });
+}
+
+navigator.geolocation.getCurrentPosition(p => {
+  const lat = p.coords.latitude;
+  const lng = p.coords.longitude;
+
+  // 🔹 używamy już pewnego koloru, który został przypisany w assignUserNumber
+  const color = driverColors[userId] || 'blue';
+  addUserMarker(userId, userNumber, color, lat, lng);
+});
+
 
 
 
