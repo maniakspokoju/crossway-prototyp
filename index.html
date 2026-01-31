@@ -105,7 +105,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.0.6</h1>
+																<h1>Crossway – fundament 5.1.0</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -131,9 +131,12 @@ html, body {
 </div>
 
 
+
 <div id="driverDestinationDiv">
 <button id="saveDriverDestinationBtn">Edytuj cel</button>
 </div>
+
+
 
 <div id="savedLocations" style="margin-top:10px; font-weight:bold;">
   <p id="driverSavedInfo" style="color:#2f6fff;"></p>
@@ -147,24 +150,6 @@ html, body {
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-
-// ====== UNIKALNY USER ID ======
-let userId = null;
-let userNumber = null;
-
-function assignUserNumber(callback){
-  const ref = db.ref("meta/nextUserNumber");
-  ref.transaction(current => {
-    return (current || 0) + 1;
-  }, (error, committed, snapshot) => {
-    if(committed){
-      userNumber = snapshot.val();
-      userId = String(userNumber); // ID = "1", "2", "3"...
-      console.log("Przydzielono userId:", userId);
-      callback(); // kontynuacja, np. zapis trasy
-    }
-  });
-}
 
 
 function showStartMarker(role, lat, lng) {
@@ -185,11 +170,7 @@ firebase.initializeApp({
   databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
 });
 const db = firebase.database();
-
-// 🔹 Usuń stare dane sesji tylko raz przy starcie serwera
-db.ref("users").remove();
-db.ref("meta").remove(); // licznik userId
-
+db.ref("session").remove();
 
 let currentMode = "A"; // A = przecięcia, B = optymalny dystans
 let accepted = false;
@@ -320,23 +301,13 @@ async function update() {
   passengerLine.setLatLngs([]);
   overlapLine.setLatLngs([]);
 
-  // Pobranie wszystkich users
-  const usersSnapshot = await db.ref("users").once("value");
-  const users = usersSnapshot.val() || {};
-
-  let ds = null;
-  let ps = null;
-
-  // Wybór danych kierowcy i pasażera
-  for (const id in users) {
-    if (users[id].role === "driver") ds = users[id];
-    if (users[id].role === "passenger") ps = users[id];
-  }
+  const ds = (await db.ref("session/driver").once("value")).val();
+  const ps = (await db.ref("session/passenger").once("value")).val();
 
   let dPath = null;
   let pPath = null;
 
-  /* ================= TRASA KIEROWCY ================= */
+  /* ================= TRASA KIEROWCY (ZAWSZE) ================= */
   if (ds?.currentLocation && ds?.destination) {
     dPath = await route(
       [ds.currentLocation.latitude, ds.currentLocation.longitude],
@@ -371,43 +342,43 @@ async function update() {
   }
 
   /* ================= TRASA WSPÓLNA ================= */
-  let overlapExists = false;
+let overlapExists = false; // 🔹 flaga do guzika akceptacji
 
-  if (dPath && pPath) {
-    const startPassenger = [ps.currentLocation.latitude, ps.currentLocation.longitude];
-    const startIdx = findClosestIndex(startPassenger, dPath);
-    if (startIdx !== -1) {
-      let endIdx = -1;
+if (dPath && pPath) {
+  const startPassenger = [ps.currentLocation.latitude, ps.currentLocation.longitude];
+  const startIdx = findClosestIndex(startPassenger, dPath);
+  if (startIdx !== -1) {
+    let endIdx = -1;
 
-      if (currentMode === "A") {
-        const hits = [];
-        dPath.forEach((dp, i) => pPath.forEach(pp => {
-          if (distanceMeters(dp, pp) <= TOLERANCE_METERS) hits.push(i);
-        }));
-        const valid = [...new Set(hits)].filter(i => i >= startIdx);
-        if (valid.length >= 2) endIdx = Math.max(...valid);
-      }
-
-      if (currentMode === "B") {
-        const passengerDest = [ps.destination.latitude, ps.destination.longitude];
-        endIdx = findBestExitIndex(dPath, passengerDest, startIdx);
-      }
-
-      if (endIdx !== -1) {
-        overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
-        overlapExists = true;
-      }
+    if (currentMode === "A") {
+      const hits = [];
+      dPath.forEach((dp, i) => pPath.forEach(pp => {
+        if (distanceMeters(dp, pp) <= TOLERANCE_METERS) hits.push(i);
+      }));
+      const valid = [...new Set(hits)].filter(i => i >= startIdx);
+      if (valid.length >= 2) endIdx = Math.max(...valid);
     }
-  }
 
-  // 🔹 Aktywacja/dezaktywacja przycisku Akceptuj trasę
-  if (!acceptLocked) {
-    acceptBtn.disabled = !overlapExists;
-    acceptBtn.style.opacity = overlapExists ? "1" : "0.4";
+    if (currentMode === "B") {
+      const passengerDest = [ps.destination.latitude, ps.destination.longitude];
+      endIdx = findBestExitIndex(dPath, passengerDest, startIdx);
+    }
+
+    if (endIdx !== -1) {
+      overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
+      overlapExists = true; // 🔹 jest wspólna trasa
+    }
   }
 }
 
- // koniec funkcji update()
+// 🔹 Aktywacja/dezaktywacja przycisku Akceptuj trasę
+if (!acceptLocked) {
+  acceptBtn.disabled = !overlapExists;
+  acceptBtn.style.opacity = overlapExists ? "1" : "0.4";
+}
+
+
+} // koniec funkcji update()
 
 
 db.ref("session").on("value", () => {
@@ -520,38 +491,30 @@ function updateRoleAvailability() {
 // });
 
 
+
+
+
 // Kierowca – cel
 saveDriverDestinationBtn.onclick = () => {
-  if(!userId){
-    assignUserNumber(saveDriverDestinationBtn.onclick);
-    return;
-  }
-
   if (!editingDriverDestination) {
+    // Włącz tryb edycji
     editingDriverDestination = true;
     saveDriverDestinationBtn.innerText = "Zapisz cel";
     return;
   }
 
+  // Tryb zapisu
   if (selectedPoint) {
-navigator.geolocation.getCurrentPosition(p => {
-  const lat = p.coords.latitude;
-  const lng = p.coords.longitude;
-
-  db.ref("users/"+userId).set({
-    number: userNumber,
-    role: "driver",
-    destination: { latitude: selectedPoint[0], longitude: selectedPoint[1] },
-    currentLocation: { latitude: lat, longitude: lng },
-  });
-});
+    db.ref("session/driver/destination").set({
+      latitude: selectedPoint[0],
+      longitude: selectedPoint[1]
+    });
   }
 
   editingDriverDestination = false;
   saveDriverDestinationBtn.innerText = "Edytuj cel";
   selectedPoint = null;
 };
-
 
 // Pasażer – cel
 saveDestinationBtn.onclick = () => {
@@ -561,14 +524,10 @@ saveDestinationBtn.onclick = () => {
     return;
   }
 
-  if(!userId){
-    assignUserNumber(saveDestinationBtn.onclick);
-    return;
-  }
-
   if (selectedPoint) {
-    db.ref("users/" + userId).update({
-      destination: { latitude: selectedPoint[0], longitude: selectedPoint[1] }
+    db.ref("session/passenger/destination").set({
+      latitude: selectedPoint[0],
+      longitude: selectedPoint[1]
     });
   }
 
@@ -576,7 +535,6 @@ saveDestinationBtn.onclick = () => {
   saveDestinationBtn.innerText = "Edytuj cel";
   selectedPoint = null;
 };
-
 
 // Pasażer – start
 saveStartBtn.onclick = () => {
@@ -586,14 +544,10 @@ saveStartBtn.onclick = () => {
     return;
   }
 
-  if(!userId){
-    assignUserNumber(saveStartBtn.onclick);
-    return;
-  }
-
   if (selectedPoint) {
-    db.ref("users/" + userId).update({
-      currentLocation: { latitude: selectedPoint[0], longitude: selectedPoint[1] }
+    db.ref("session/passenger/currentLocation").set({
+      latitude: selectedPoint[0],
+      longitude: selectedPoint[1]
     });
   }
 
