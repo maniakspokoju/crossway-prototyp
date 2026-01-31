@@ -23,7 +23,7 @@ Szachownica - fundament/oryginał/perfekt
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.2.5</h1>
+															<h1>Crossway – Szachownica 5.2.6</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -240,10 +240,10 @@ navigator.geolocation.getCurrentPosition(p => {
   const lat = p.coords.latitude;
   const lng = p.coords.longitude;
 
-  // marker na mapie w kolorze wylosowanym dla użytkownika
-  const color = role === "driver" ? driverColors[userId] : 'green';
-  addUserMarker(userId, color, lat, lng);
+  const color = role === "driver" ? driverColors[userId] : "green"; // zielony dla pasażera
+  addUserMarker(userId, userNumber, color, lat, lng);
 });
+
 
 
   function getRandomColor(){
@@ -479,13 +479,14 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 const userMarkers = {};
 
 
-function addUserMarker(userId, color, lat, lng) {
+function addUserMarker(userId, userNumber, color, lat, lng) {
   const icon = L.divIcon({
-    html: `<div style='font-size:20px;font-weight:bold;color:${color}'>●</div>`,
+    html: `<div style='font-size:20px;font-weight:bold;color:${color}'>${userNumber}</div>`,
     className: "",
     iconSize: [20, 20],
     iconAnchor: [10, 10]
   });
+
   const marker = L.marker([lat, lng], { icon }).addTo(map);
   userMarkers[userId] = marker;
 }
