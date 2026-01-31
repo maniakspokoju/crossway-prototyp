@@ -120,7 +120,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.2.0</h1>
+																<h1>Crossway – fundament 5.2.1</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -160,15 +160,15 @@ html, body {
 <!-- TABELA UŻYTKOWNIKÓW -->
 <h2>Użytkownicy w sesji</h2>
 <table id="usersTable" border="1" style="width:100%; text-align:center;">
-  <thead>
-    <tr>
-      <th>User ID</th>
-      <th>Rola</th>
-      <th>Current Location</th>
-      <th>Destination</th>
-      <th>Akceptacja</th>
-    </tr>
-  </thead>
+<thead>
+  <tr>
+    <th>Nr</th>
+    <th>Kolor</th>
+    <!-- kolumny kierowców będą dodawane dynamicznie w JS -->
+  </tr>
+</thead>
+
+
   <tbody>
     <!-- wiersze będą generowane dynamicznie przez JS -->
   </tbody>
@@ -206,9 +206,10 @@ db.ref("session").remove();
 
 // nasłuchiwanie wszystkich użytkowników w sesji
 db.ref("session/users").on("value", snapshot => {
-  const users = snapshot.val() || {};
-  updateUsersTable(users);
+  updateUsersTable(snapshot);
+  update(); // odświeża linie na mapie
 });
+
 
 
 // Unikalny identyfikator dla każdego użytkownika (losowy)
@@ -361,16 +362,18 @@ async function update() {
   let dPath = null;
   let pPath = null;
 
-  /* ================= TRASA KIEROWCY (ZAWSZE) ================= */
-  dPath = await route(
-    [driver.currentLocation.latitude, driver.currentLocation.longitude],
-    [driver.destination.latitude, driver.destination.longitude]
-  );
-  driverLine.setLatLngs(dPath);
-  if (dPath.length) {
-    driverStartMarker.setLatLng(dPath[0]);
-    driverEndMarker.setLatLng(dPath.at(-1));
-  }
+/* ================= TRASA KIEROWCY (ZAWSZE) ================= */
+dPath = await route(
+  [driver.currentLocation.latitude, driver.currentLocation.longitude],
+  [driver.destination.latitude, driver.destination.longitude]
+);
+driverLine.setLatLngs(dPath);
+if (dPath.length) {
+  driverStartMarker.setLatLng(dPath[0]);
+  driverEndMarker.setLatLng(dPath.at(-1));
+}
+driver.path = dPath; // 🔹 nowa linia
+
 
   /* ================= TRASA PASAŻERA ================= */
   pPath = await route(
@@ -431,102 +434,95 @@ async function update() {
 
 // FUNKCJA DO AKTUALIZACJI TABELI
 function updateUsersTable(usersData) {
-  const tbody = document.querySelector("#usersTable tbody");
-  tbody.innerHTML = ""; // czyścimy stare wiersze
+    const tbody = document.querySelector("#usersTable tbody");
+    tbody.innerHTML = ""; // czyścimy stare wiersze
 
-  Object.entries(usersData).forEach(([uid, user]) => {
-    const tr = document.createElement("tr");
+    const drivers = Object.values(usersData).filter(u => u.role === "driver");
+    const passengers = Object.values(usersData).filter(u => u.role === "passenger");
 
-    // User ID
-    const tdId = document.createElement("td");
-    tdId.textContent = uid;
-    tr.appendChild(tdId);
+    passengers.forEach(passenger => {
+        const tr = document.createElement("tr");
 
-    // Rola
-    const tdRole = document.createElement("td");
-    tdRole.textContent = user.role || "-";
-    tr.appendChild(tdRole);
+        // Numer porządkowy
+        const tdNumber = document.createElement("td");
+        tdNumber.textContent = passenger.userNumber;
+        tr.appendChild(tdNumber);
 
-    // Current Location
-    const tdCurrent = document.createElement("td");
-    if (user.currentLocation) {
-      tdCurrent.textContent = `${user.currentLocation.latitude.toFixed(5)}, ${user.currentLocation.longitude.toFixed(5)}`;
-    } else {
-      tdCurrent.textContent = "-";
-    }
-    tr.appendChild(tdCurrent);
+        // Kolor
+        const tdColor = document.createElement("td");
+        tdColor.textContent = passenger.color;
+        tdColor.style.backgroundColor = passenger.color;
+        tr.appendChild(tdColor);
 
-    // Destination
-    const tdDest = document.createElement("td");
-    if (user.destination) {
-      tdDest.textContent = `${user.destination.latitude.toFixed(5)}, ${user.destination.longitude.toFixed(5)}`;
-    } else {
-      tdDest.textContent = "-";
-    }
-    tr.appendChild(tdDest);
+        // Kolumna dla każdego kierowcy: start pasażera na trasie kierowcy
+        drivers.forEach(driver => {
+            const tdOnRoute = document.createElement("td");
+            if (driver.path && passenger.currentLocation) {
+                const start = [passenger.currentLocation.latitude, passenger.currentLocation.longitude];
+                const onRoute = driver.path.some(p => distanceMeters(start, p) <= TOLERANCE_METERS);
+                if (onRoute) tdOnRoute.textContent = "✓"; // tylko gdy start pasażera na trasie
+            }
+            tr.appendChild(tdOnRoute);
+        });
 
-    // Akceptacja
-    const tdAccepted = document.createElement("td");
-    tdAccepted.textContent = user.accepted ? "TAK" : "NIE";
-    tr.appendChild(tdAccepted);
-
-    tbody.appendChild(tr);
-  });
+        tbody.appendChild(tr);
+    });
 }
-
-
-db.ref("session").on("value", () => {
-  update();
-  updateRoleAvailability();
-});
 
 
 /* ================= ROLE ================= */
+let userId = null; // globalny ID użytkownika
+let userNumber = null;
+let currentRole = null; // driver | passenger
+const driverColors = {}; // kolory kierowców
+
 async function assign(role) {
-  // Pobranie wszystkich obecnych użytkowników
-  const usersSnap = await db.ref("session/users").once("value");
-  const users = usersSnap.val() || {};
+  currentRole = role;
 
-  // Nadanie numeru w kolejności dołączania
-  const existingNumbers = Object.values(users)
-    .map(u => u.userNumber)
-    .filter(n => n !== undefined);
+  // pobranie i przypisanie numeru użytkownika
+  const ref = db.ref("session/meta/nextUserNumber");
+  ref.transaction(current => (current || 0) + 1, (err, committed, snapshot) => {
+    if (committed) {
+      userNumber = snapshot.val();
+      userId = String(userNumber);
 
-  const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+      // generowanie losowego koloru (tylko dla kierowców)
+      const color = role === "driver" ? getRandomColor() : null;
+      if(role==='driver') driverColors[userId] = color;
 
-  // Generowanie losowego koloru
-  const color = "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
+      // zapis do Firebase
+db.ref(`session/users/${userId}`).set({
+  role: role,
+  userNumber: nextNumber,
+  color: color,
+  currentLocation: null,
+  destination: null,
+  acceptedBy: null  // zamiast accepted
+});
 
-  // Unikalny ID (może być też userNumber, ale zostawiamy losowe dla bezpieczeństwa)
-  const userId = 'user_' + Math.random().toString(36).substr(2, 9);
 
-  // Zapis do Firebase
-  db.ref(`session/users/${userId}`).set({
-    role: role,
-    userNumber: nextNumber,  // numer użytkownika
-    color: color,            // kolor przypisany do użytkownika
-    currentLocation: null,
-    destination: null,
-    accepted: false
+      // pobranie lokalizacji i ustawienie markera
+      navigator.geolocation.getCurrentPosition(p => {
+        const lat = p.coords.latitude;
+        const lng = p.coords.longitude;
+        db.ref(`session/users/${userId}/currentLocation`).set({ latitude: lat, longitude: lng });
+
+        if(role==='driver') driverStartMarker.setLatLng([lat, lng]);
+        if(role==='passenger') passengerStartMarker.setLatLng([lat, lng]);
+      });
+
+      // blokada przycisków
+      driverBtn.disabled = true; driverBtn.style.opacity="0.4";
+      passengerBtn.disabled = true; passengerBtn.style.opacity="0.4";
+    }
   });
-
-  // Dalej standardowa logika — pobranie geolokalizacji, ustawienie markerów itd.
-  navigator.geolocation.getCurrentPosition(p => {
-    const lat = p.coords.latitude;
-    const lng = p.coords.longitude;
-
-    db.ref(`session/users/${userId}/currentLocation`).set({ latitude: lat, longitude: lng });
-
-    if (role === "driver") driverStartMarker.setLatLng([lat, lng]);
-    if (role === "passenger") passengerStartMarker.setLatLng([lat, lng]);
-  });
-
-  // UI — blokada guzika
-  driverBtn.disabled = true;
-  driverBtn.style.opacity = "0.4";
-  passengerBtn.disabled = true;
-  passengerBtn.style.opacity = "0.4";
 }
+
+// funkcja losująca kolor
+function getRandomColor(){
+  return '#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
+}
+
 
 driverBtn.onclick = () => {
   setBackgroundFromRoleButton(driverBtn);
@@ -537,6 +533,7 @@ passengerBtn.onclick = () => {
   setBackgroundFromRoleButton(passengerBtn);
   assign("passenger");
 };
+
 
 
 
@@ -680,17 +677,24 @@ db.ref("session/mode").on("value", snap => {
 
 const acceptBtn = document.getElementById("acceptBtn");
 
-acceptBtn.onclick = () => {
-  if (acceptLocked) return; // 🔒 zabezpieczenie
+acceptBtn.onclick = async () => {
+  if (!userId || currentRole !== 'passenger') return; // tylko pasażer
 
-  acceptLocked = true;
+  // pobranie pierwszego kierowcy w sesji
+  const usersSnap = await db.ref("session/users").once("value");
+  const users = usersSnap.val() || {};
+  const driverEntry = Object.entries(users).find(([id,u]) => u.role === "driver");
+  if(!driverEntry) return; 
+  const driverId = driverEntry[0];
 
-  db.ref("session/accepted").set(true);
-  lockFormsAfterAccept();
+  // zapis w Firebase – pasażer zapisuje kto zaakceptował trasę
+  db.ref(`session/users/${userId}/acceptedBy`).set(driverId);
 
+  // blokada guzika
   acceptBtn.disabled = true;
   acceptBtn.style.opacity = "0.4";
 };
+
 
 
 
