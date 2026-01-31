@@ -105,7 +105,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.0.3</h1>
+																<h1>Crossway – fundament 5.0.4</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -319,19 +319,17 @@ async function update() {
   overlapLine.setLatLngs([]);
 
 // Pobranie danych z session
-const ds = (await db.ref("users/1").once("value")).val();   // kierowca
-const ps = (await db.ref("users/2").once("value")).val();   // pasażer
-
-// Pobranie wszystkich users
 const usersSnapshot = await db.ref("users").once("value");
 const users = usersSnapshot.val() || {};
 
+let ds = null;
+let ps = null;
 
-// Jeśli w users mamy odpowiadające role, nadpisujemy session
 for (const id in users) {
   if (users[id].role === "driver") ds = users[id];
   if (users[id].role === "passenger") ps = users[id];
 }
+
 
 
   let dPath = null;
@@ -535,12 +533,17 @@ saveDriverDestinationBtn.onclick = () => {
   }
 
   if (selectedPoint) {
-    db.ref("users/"+userId).set({
-      number: userNumber,
-      role: "driver",
-      destination: { latitude: selectedPoint[0], longitude: selectedPoint[1] },
-      currentLocation: null, // opcjonalnie, można wypełnić aktualną lokalizacją
-    });
+navigator.geolocation.getCurrentPosition(p => {
+  const lat = p.coords.latitude;
+  const lng = p.coords.longitude;
+
+  db.ref("users/"+userId).set({
+    number: userNumber,
+    role: "driver",
+    destination: { latitude: selectedPoint[0], longitude: selectedPoint[1] },
+    currentLocation: { latitude: lat, longitude: lng },
+  });
+});
   }
 
   editingDriverDestination = false;
