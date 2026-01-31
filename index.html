@@ -171,6 +171,9 @@ firebase.initializeApp({
 const db = firebase.database();
 db.ref("session").remove();
 
+// Unikalny identyfikator dla każdego użytkownika (losowy)
+const userId = 'user_' + Math.random().toString(36).substr(2, 9);
+
 let currentMode = "A"; // A = przecięcia, B = optymalny dystans
 let accepted = false;
 let acceptLocked = false; // 🔒 lokalna blokada guzika
@@ -393,32 +396,39 @@ function assign(role) {
   if (firstTimeChoosing) {
     currentRole = role;
 
-// Generowanie unikalnego ID dla nowego użytkownika
-const userId = 'user_' + Date.now();  // np. user_1678945623456
-
-// Kolor losowy dla użytkownika
-function getRandomColor() {
-  const letters = '0123456789ABCDEF';
-  let color = '#';
-  for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
-  return color;
-}
-const userColor = getRandomColor();
-
-// Zapis użytkownika do listy w Firebase
-db.ref(`session/users/${userId}`).set({
-  role: role,
-  color: userColor,
-  createdAt: Date.now()
-});
-
-    // 🔹 UI lokalne – guziki stają się nieaktywne tylko na tym urządzeniu
-    driverBtn.disabled = true;
-    driverBtn.style.opacity = "0.4";
-    passengerBtn.disabled = true;
-    passengerBtn.style.opacity = "0.4";
-
+    // 🔹 nowy zapis w Firebase: lista użytkowników
+    db.ref(`session/users/${userId}`).set({
+      role: role,
+      currentLocation: null,
+      destination: null,
+      accepted: false
+    });
   }
+
+  // Pobranie aktualnej lokalizacji
+  navigator.geolocation.getCurrentPosition(p => {
+    const lat = p.coords.latitude;
+    const lng = p.coords.longitude;
+
+    // 🔹 zapis lokalizacji użytkownika w liście
+    db.ref(`session/users/${userId}/currentLocation`).set({ latitude: lat, longitude: lng });
+
+    // Ustawienie markera startowego od razu na mapie
+    if (role === "driver") driverStartMarker.setLatLng([lat, lng]);
+    if (role === "passenger") passengerStartMarker.setLatLng([lat, lng]);
+  });
+
+  // UI lokalne – guziki stają się nieaktywne
+  driverBtn.disabled = true;
+  driverBtn.style.opacity = "0.4";
+  passengerBtn.disabled = true;
+  passengerBtn.style.opacity = "0.4";
+
+  // Pokazanie odpowiedniego panelu
+  if (role === "driver") driverDestinationDiv.style.display = "block";
+  if (role === "passenger") document.getElementById("passengerControls").style.display = "block";
+}
+
 
   // Pobranie aktualnej lokalizacji
   navigator.geolocation.getCurrentPosition(p => {
