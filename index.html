@@ -33,11 +33,12 @@
   href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.min.js"></script>
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.3.6</h1>
+															<h1>Crossway – Szachownica 5.3.7</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -107,6 +108,8 @@
   let goalEditMode = false;   // czy edytujemy cel
   let goalMarker = null;     // marker celu
   let goalLocation = null;   // { lat, lng }
+  let routeControl = null; // globalny obiekt trasy
+
 
 
 
@@ -509,8 +512,16 @@ goalBtn.onclick = () => {
   if (goalEditMode) {
     goalBtn.textContent = '💾 Zapisz cel';
   } else {
+    // Zapisanie celu i rysowanie trasy
+    goalEditMode = false;
     goalBtn.textContent = '🎯 Edytuj cel';
-    // tu później można zapisać do Firebase
+
+    if (startMarker && goalMarker) {
+      const startLatLng = startMarker.getLatLng();
+      const endLatLng = goalMarker.getLatLng();
+      const color = role === 'driver' ? driverColors[userId] : 'green';
+      drawRouteOnMap(startLatLng, endLatLng, color, role);
+    }
   }
 };
 
@@ -618,12 +629,45 @@ map.on('click', e => {
     lng: e.latlng.lng
   };
 
+if (gridStart) { // gridStart zawiera lokalizację startu
+  const startLatLng = { lat: startMarker.getLatLng().lat, lng: startMarker.getLatLng().lng };
+  const endLatLng = { lat: goalLocation.lat, lng: goalLocation.lng };
+  const color = role === 'driver' ? driverColors[userId] : 'green';
+  drawRouteOnMap(startLatLng, endLatLng, color, role);
+}
+
   if (!goalMarker) {
     goalMarker = L.marker([goalLocation.lat, goalLocation.lng]).addTo(map);
   } else {
     goalMarker.setLatLng([goalLocation.lat, goalLocation.lng]);
   }
 });
+
+function drawRouteOnMap(startLatLng, endLatLng, color, role) {
+  // jeśli już istnieje, usuń poprzednią trasę
+  if (routeControl) {
+    map.removeControl(routeControl);
+  }
+
+  // tworzymy trasę
+  routeControl = L.Routing.control({
+    waypoints: [
+      L.latLng(startLatLng.lat, startLatLng.lng),
+      L.latLng(endLatLng.lat, endLatLng.lng)
+    ],
+    lineOptions: {
+      styles: [{ color: color, weight: 5 }]
+    },
+    router: L.Routing.osrmv1({
+      serviceUrl: 'https://router.project-osrm.org/route/v1',
+      profile: role === 'driver' ? 'car' : 'foot'
+    }),
+    show: false,
+    addWaypoints: false,
+    routeWhileDragging: false,
+    fitSelectedRoutes: true
+  }).addTo(map);
+}
 
 // ====== START ======
 initGrid();
