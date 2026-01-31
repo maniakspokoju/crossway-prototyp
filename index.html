@@ -105,7 +105,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 4.9</h1>
+																<h1>Crossway – fundament 5.1.1</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -393,8 +393,32 @@ function assign(role) {
   if (firstTimeChoosing) {
     currentRole = role;
 
-    // Zapis roli w Firebase
-    db.ref("session/" + role).set({ role });
+// Generowanie unikalnego ID dla nowego użytkownika
+const userId = 'user_' + Date.now();  // np. user_1678945623456
+
+// Kolor losowy dla użytkownika
+function getRandomColor() {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
+  return color;
+}
+const userColor = getRandomColor();
+
+// Zapis użytkownika do listy w Firebase
+db.ref(`session/users/${userId}`).set({
+  role: role,
+  color: userColor,
+  createdAt: Date.now()
+});
+
+    // 🔹 UI lokalne – guziki stają się nieaktywne tylko na tym urządzeniu
+    driverBtn.disabled = true;
+    driverBtn.style.opacity = "0.4";
+    passengerBtn.disabled = true;
+    passengerBtn.style.opacity = "0.4";
+  }
+
   }
 
   // Pobranie aktualnej lokalizacji
