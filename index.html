@@ -6,8 +6,6 @@
 <style>
   body { font-family: Arial, sans-serif; }
   #roleSelect { margin: 10px 0; }
-  #grid { border-collapse: collapse; margin: 20px 0; }
-  #grid td { width: 40px; height: 40px; border: 1px solid #aaa; text-align: center; vertical-align: middle; cursor: pointer; position: relative; }
   .sharedCell { background-color: red !important; }
   #usersTable { margin-top: 20px; border-collapse: collapse; width: 100%; }
   #usersTable th, #usersTable td { border: 1px solid #000; padding: 5px; text-align: center; }
@@ -38,7 +36,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.4.1</h1>
+															<h1>Crossway – Szachownica 5.4.2</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -58,10 +56,7 @@
 
 
 
-<div id="mainView">
-  <table id="grid"></table>
-  <div id="map"></div>
-</div>
+
 
 
 <h2>Użytkownicy / trasy</h2>
@@ -91,184 +86,27 @@
   const db = firebase.database();
 
   // ====== STANY ======
-  const ROWS = 8, COLS = 8;
-  let userId = null; // zostanie ustawione po pobraniu numeru
+  let userId = null;
   let userNumber = null;
   let role = null; // 'driver' lub 'passenger'
-  let gridStart = null;
-  let gridEnd = null;
   let usersData = {};
-  let matchedDrivers = [];
-  let selectedDriverIndex = 0;
-  let passengersOrder = []; // [1,2,3...] – kolejność pasażerów
-  let acceptedDriverId = null; // ID kierowcy zaakceptowanego przez pasażera
-  let myColor = null;          // kolor TEGO użytkownika
-  let userLocation = null;    // { lat, lng }
-  let myMarker = null;        // marker Leaflet
-  let goalEditMode = false;   // czy edytujemy cel
-  let goalMarker = null;     // marker celu
-  let goalLocation = null;   // { lat, lng }
-  let routeControl = null; // globalny obiekt trasy
-  let startMarker = null;  // marker startu użytkownika
-
-
-
-
-
- 
-
+  let myColor = null;
+  let userLocation = null;
+  let myMarker = null;
+  let goalEditMode = false;
+  let goalMarker = null;
+  let routeControl = null;
 
   const driverColors = {};
+  const passengersOrder = [];
 
   // ====== ELEMENTY ======
-  const gridEl = document.getElementById('grid');
   const driverBtn = document.getElementById('driverBtn');
   const passengerBtn = document.getElementById('passengerBtn');
-  const prevDriverBtn = document.getElementById('prevDriverBtn');
-  const nextDriverBtn = document.getElementById('nextDriverBtn');
-  const acceptBtn = document.getElementById('acceptBtn');
-  const resetBtn = document.getElementById('resetBtn');
   const usersTableBody = document.querySelector('#usersTable tbody');
   const goalBtn = document.getElementById('goalBtn');
 
-  // ====== INICJALIZACJA GRIDU ======
-  function initGrid() {
-    gridEl.innerHTML = '';
-    const header = document.createElement('tr');
-    header.innerHTML = '<th></th>' + Array.from({length:COLS}, (_,i)=>`<th>${String.fromCharCode(65+i)}</th>`).join('');
-    gridEl.appendChild(header);
-    for(let r=0;r<ROWS;r++){
-      let tr = document.createElement('tr');
-      tr.innerHTML = `<th>${r+1}</th>`;
-      for(let c=0;c<COLS;c++){
-        let td = document.createElement('td');
-        td.dataset.row = r;
-        td.dataset.col = c;
-        td.onclick = () => cellClick(r,c);
-        tr.appendChild(td);
-      }
-      gridEl.appendChild(tr);
-    }
-  }
-
-  function cellClick(r,c){
-    if(!role) return;
-    if(!gridStart){
-      gridStart = {r,c};
-      updateGrid();
-    } else if(!gridEnd){
-      gridEnd = {r,c};
-      if(gridStart.r !== gridEnd.r && gridStart.c !== gridEnd.c){
-        alert("Trasa musi być w linii prostej!");
-        gridEnd = null;
-        return;
-      }
-      saveRoute();
-      updateGrid();
-    }
-  }
-
-function updateUsersHeader(){
-  const thead = document.querySelector('#usersTable thead');
-
-  thead.innerHTML = `
-    <tr>
-      <th>#</th>
-      <th>Kolor</th>
-      ${passengersOrder.map(n => `<th>${n}</th>`).join('')}
-    </tr>
-  `;
-}
-
-
-function passengerOnDriverRoute(passenger, driver){
-  if(!passenger.start || !driver.start) return false;
-
-  const ps = parseCell(passenger.start);
-  const ds = parseCell(driver.start);
-  const de = parseCell(driver.end);
-
-  const cells = (ds.r===de.r)
-    ? Array.from({length:Math.abs(de.c-ds.c)+1},(_,i)=>({r:ds.r,c:Math.min(ds.c,de.c)+i}))
-    : Array.from({length:Math.abs(de.r-ds.r)+1},(_,i)=>({r:Math.min(ds.r,de.r)+i,c:ds.c}));
-
-  return cells.some(c=>c.r===ps.r && c.c===ps.c);
-}
-
-
-
-function saveRoute(){
-  if(!userId){
-    assignUserNumber(saveRoute);
-    return;
-  }
-
-  const start = `${gridStart.r},${gridStart.c}`;
-  const end = `${gridEnd.r},${gridEnd.c}`;
-if (role === 'driver' && !myColor) {
-  myColor = getRandomColor();
-}
-
-const color = role === 'driver' ? myColor : null;
-
-
-db.ref("users/"+userId).set({
-  number: userNumber,
-  role,
-  start,
-  end,
-  color,
-  acceptedBy: null
-});
-
-// ⬇⬇⬇ DOKŁADNIE TUTAJ
-tryCreateMyMarker();
-
-
-  // 🔹 dezaktywacja przycisków po ustaleniu trasy kierowcy
-  if(role === 'driver') {
-    prevDriverBtn.disabled = true;
-    nextDriverBtn.disabled = true;
-    acceptBtn.disabled = true;
-  }
-}
-
-function isSameDirection(driverStart, driverEnd, passengerStart, passengerEnd){
-  // tylko trasy w linii prostej (tak jak w Twoim programie)
-  if(driverStart.r === driverEnd.r){
-    // poziomo
-    const dirDriver = Math.sign(driverEnd.c - driverStart.c);
-    const dirPassenger = Math.sign(passengerEnd.c - passengerStart.c);
-    return dirDriver === dirPassenger;
-  }
-
-  if(driverStart.c === driverEnd.c){
-    // pionowo
-    const dirDriver = Math.sign(driverEnd.r - driverStart.r);
-    const dirPassenger = Math.sign(passengerEnd.r - passengerStart.r);
-    return dirDriver === dirPassenger;
-  }
-
-  return false;
-}
-
-
-
-function assignUserNumber(callback){
-  const ref = db.ref("meta/nextUserNumber");
-  ref.transaction(current => {
-    return (current || 0) + 1;
-  }, (error, committed, snapshot) => {
-if(committed){
-  userNumber = snapshot.val();
-  userId = String(userNumber);
-  tryCreateMyMarker();
-  callback();
-}
-  });
-}
-
-
+  // ====== FUNKCJE ======
   function getRandomColor(){
     const letters = '0123456789ABCDEF';
     let color = '#';
@@ -276,18 +114,24 @@ if(committed){
     return color;
   }
 
-function tryCreateMyMarker() {
-  if (!map) return;
-  if (!userId) return;
-  if (!userNumber) return;
-  if (!myColor) return;
-  if (!userLocation) return;
-  if (myMarker) return; // ❗ nie tworzymy drugi raz
+  function assignUserNumber(callback){
+    const ref = db.ref("meta/nextUserNumber");
+    ref.transaction(current => (current || 0) + 1, (error, committed, snapshot) => {
+      if(committed){
+        userNumber = snapshot.val();
+        userId = String(userNumber);
+        callback();
+      }
+    });
+  }
 
-  const icon = L.divIcon({
-    className: '',
-    html: `
-      <div style="
+  function tryCreateMyMarker() {
+    if (!map || !userId || !userNumber || !myColor || !userLocation) return;
+    if (myMarker) return; // nie tworzymy drugi raz
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
         background:${myColor};
         color:#fff;
         width:26px;
@@ -297,397 +141,117 @@ function tryCreateMyMarker() {
         line-height:26px;
         font-weight:bold;
         border:2px solid #000;
-      ">${userNumber}</div>
-    `,
-    iconSize: [26,26],
-    iconAnchor: [13,13]
-  });
+      ">${userNumber}</div>`,
+      iconSize: [26,26],
+      iconAnchor: [13,13]
+    });
 
-  myMarker = L.marker(
-    [userLocation.lat, userLocation.lng],
-    { icon }
-  ).addTo(map);
-
-  map.setView([userLocation.lat, userLocation.lng], 14);
-}
-
-
-function getUserLocation() {
-  if (!navigator.geolocation) {
-    alert("Brak obsługi GPS");
-    return;
+    myMarker = L.marker([userLocation.lat, userLocation.lng], { icon }).addTo(map);
+    map.setView([userLocation.lat, userLocation.lng], 14);
   }
 
-navigator.geolocation.getCurrentPosition(pos => {
-  const lat = pos.coords.latitude;
-  const lng = pos.coords.longitude;
+  function getUserLocation() {
+    if (!navigator.geolocation) { alert("Brak obsługi GPS"); return; }
 
-  userLocation = { lat, lng };
-
-  // 🔹 utworzenie lub przesunięcie markera startu
-  if (!startMarker) {
-    startMarker = L.marker([lat, lng], { color: role === 'driver' ? driverColors[userId] : 'green' })
-                  .addTo(map)
-                  .bindPopup('Start');
-  } else {
-    startMarker.setLatLng([lat, lng]);
+    navigator.geolocation.getCurrentPosition(pos => {
+      userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      tryCreateMyMarker();
+    }, err => { alert("Nie udało się pobrać lokalizacji"); });
   }
 
-  // 🔹 oryginalna funkcja tworząca marker użytkownika
-  tryCreateMyMarker();
-
-}, err => {
-  alert("Nie udało się pobrać lokalizacji");
-});
-}
-
-function clearGridVisuals() {
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const cell = gridEl.rows[r + 1].cells[c + 1];
-      cell.style.backgroundColor = '';
-      cell.className = '';
-    }
+  function updateUsersHeader(){
+    const thead = document.querySelector('#usersTable thead');
+    thead.innerHTML = `<tr><th>#</th><th>Kolor</th></tr>`;
   }
-}
 
+  function updateUsersTable(){
+    updateUsersHeader();
+    usersTableBody.innerHTML = '';
 
-function updateGrid(){
-  clearGridVisuals();
-
-    // reset
-    for(let r=0;r<ROWS;r++)
-      for(let c=0;c<COLS;c++)
-        gridEl.rows[r+1].cells[c+1].className='';
-
-    if(gridStart) gridEl.rows[gridStart.r+1].cells[gridStart.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
-    if(gridEnd) gridEl.rows[gridEnd.r+1].cells[gridEnd.c+1].classList.add(role==='driver' ? 'driverCell' : 'passengerCell');
-
-    // dla kierowcy rysujemy własną trasę
-if(role==='driver' && gridStart && gridEnd){
-  // własna trasa kierowcy
-  drawRoute(gridStart, gridEnd, driverColors[userId] || 'blue');
-
-  // rysujemy trasę wszystkich pasażerów, którzy zaakceptowali tego kierowcę
-  Object.values(usersData).forEach(u => {
-    if(u.role === 'passenger' && u.acceptedDriverId == userId && u.start && u.end){
-      const pStart = parseCell(u.start);
-      const pEnd = parseCell(u.end);
-
-      // trasa pasażera
-      drawRoute(pStart, pEnd, 'green');
-
-      // wspólne pola
-      const shared = getSharedCells(gridStart, gridEnd, pStart, pEnd);
-      shared.forEach(cell => {
-        gridEl.rows[cell.r+1].cells[cell.c+1].classList.add('sharedCell');
-      });
-    }
-  });
-}
-
-
-
-    // dla pasażera
-if(role==='passenger' && gridStart && gridEnd){
-  // zawsze własna trasa pasażera
-  drawRoute(gridStart, gridEnd, 'passengerCell');
-
-  // jeśli jeszcze nie zaakceptował – rysujemy trasę aktualnie wybranego kierowcy
-  if(!acceptedDriverId && matchedDrivers[selectedDriverIndex]){
-    const driver = matchedDrivers[selectedDriverIndex];
-    const dStart = parseCell(driver.start);
-    const dEnd = parseCell(driver.end);
-    drawRoute(dStart, dEnd, driver.color || 'blue');
-
-    const shared = getSharedCells(gridStart, gridEnd, dStart, dEnd);
-    shared.forEach(cell => {
-      gridEl.rows[cell.r + 1].cells[cell.c + 1].classList.add('sharedCell');
+    Object.values(usersData).forEach(u => {
+      const tr = document.createElement('tr');
+      const color = u.color || '';
+      tr.innerHTML = `<td>${u.number}</td><td style="background:${color}"></td>`;
+      usersTableBody.appendChild(tr);
     });
   }
 
-  // jeśli zaakceptował – rysujemy tylko trasę zaakceptowanego kierowcy + wspólne pola
-  if(acceptedDriverId){
-    const driver = usersData[acceptedDriverId];
-    if(driver && driver.start && driver.end){
-      const dStart = parseCell(driver.start);
-      const dEnd = parseCell(driver.end);
-      drawRoute(dStart, dEnd, driver.color || 'blue');
+  function drawRouteOnMap(startLatLng, endLatLng, color, role){
+    if(routeControl) map.removeControl(routeControl);
 
-      const shared = getSharedCells(gridStart, gridEnd, dStart, dEnd);
-      shared.forEach(cell => {
-        gridEl.rows[cell.r + 1].cells[cell.c + 1].classList.add('sharedCell');
-      });
-    }
-  }
-}
-}
-
-  function drawRoute(start,end,className){
-    const color = className==='driverCell' ? 'blue' : className==='passengerCell' ? 'green' : className;
-    if(start.r===end.r)
-      for(let c=Math.min(start.c,end.c);c<=Math.max(start.c,end.c);c++)
-        gridEl.rows[start.r+1].cells[c+1].style.backgroundColor=color;
-    else
-      for(let r=Math.min(start.r,end.r);r<=Math.max(start.r,end.r);r++)
-        gridEl.rows[r+1].cells[start.c+1].style.backgroundColor=color;
-  }
-
-  function parseCell(str){
-    const [r,c] = str.split(',').map(Number);
-    return {r,c};
-  }
-
-  function getSharedCells(start1,end1,start2,end2){
-    const cells1 = (start1.r===end1.r)
-      ? Array.from({length:Math.abs(end1.c-start1.c)+1},(_,i)=>({r:start1.r,c:Math.min(start1.c,end1.c)+i}))
-      : Array.from({length:Math.abs(end1.r-start1.r)+1},(_,i)=>({r:Math.min(start1.r,end1.r)+i,c:start1.c}));
-    const cells2 = (start2.r===end2.r)
-      ? Array.from({length:Math.abs(end2.c-start2.c)+1},(_,i)=>({r:start2.r,c:Math.min(start2.c,end2.c)+i}))
-      : Array.from({length:Math.abs(end2.r-start2.r)+1},(_,i)=>({r:Math.min(start2.r,end2.r)+i,c:start2.c}));
-    return cells1.filter(c1=>cells2.some(c2=>c1.r===c2.r && c1.c===c2.c));
+    routeControl = L.Routing.control({
+      waypoints: [L.latLng(startLatLng.lat, startLatLng.lng), L.latLng(endLatLng.lat, endLatLng.lng)],
+      lineOptions: { styles:[{ color: color, weight: 5 }] },
+      router: L.Routing.osrmv1({
+        serviceUrl:'https://router.project-osrm.org/route/v1',
+        profile: role==='driver'?'car':'foot'
+      }),
+      show:false,
+      addWaypoints:false,
+      routeWhileDragging:false,
+      fitSelectedRoutes:true
+    }).addTo(map);
   }
 
   // ====== PRZYCISKI ======
-driverBtn.onclick = () => {
-  role = 'driver';
-  document.body.style.backgroundColor = "#ddeeff";
-  driverBtn.disabled = true; passengerBtn.disabled = true;
+  driverBtn.onclick = () => {
+    role = 'driver';
+    document.body.style.backgroundColor = "#ddeeff";
+    driverBtn.disabled = passengerBtn.disabled = true;
 
-  // natychmiastowy numer i kolor
-  assignUserNumber(() => {
-    myColor = getRandomColor(); // losowy kolor kierowcy
-    updateUsersTable();          // od razu dodajemy do tabeli
-  });
+    assignUserNumber(() => {
+      myColor = getRandomColor();
+      updateUsersTable();
+    });
 
-  getUserLocation(); // pobieramy GPS
-};
-
-passengerBtn.onclick = () => {
-  role = 'passenger';
-  document.body.style.backgroundColor = "#ddffdd";
-  driverBtn.disabled = true; passengerBtn.disabled = true;
-
-  // natychmiastowy numer i kolor
-  assignUserNumber(() => {
-    myColor = 'green';           // stały kolor pasażera
-    updateUsersTable();          // od razu dodajemy do tabeli
-  });
-
-  getUserLocation(); // pobieramy GPS
-};
-
-
-  nextDriverBtn.onclick = ()=>{
-    if(matchedDrivers.length===0) return;
-    selectedDriverIndex=(selectedDriverIndex+1)%matchedDrivers.length;
-    updateGrid();
-  };
-  prevDriverBtn.onclick = ()=>{
-    if(matchedDrivers.length===0) return;
-    selectedDriverIndex=(selectedDriverIndex-1+matchedDrivers.length)%matchedDrivers.length;
-    updateGrid();
+    getUserLocation();
   };
 
-acceptBtn.onclick = () => {
-  if(role !== 'passenger') return;
+  passengerBtn.onclick = () => {
+    role = 'passenger';
+    document.body.style.backgroundColor = "#ddffdd";
+    driverBtn.disabled = passengerBtn.disabled = true;
 
-  const driver = matchedDrivers[selectedDriverIndex];
-  acceptedDriverId = driver.id; // zapisujemy zaakceptowanego kierowcę
+    assignUserNumber(() => {
+      myColor = 'green';
+      updateUsersTable();
+    });
 
-  // 🔹 zapis w pasażerze: którego kierowcę zaakceptował
-  const passengerRef = db.ref("users/" + userId + "/acceptedDriverId");
-  passengerRef.set(driver.id);
-
-  // opcjonalnie: dla kierowcy też możemy aktualizować listę pasażerów
-  const driverRef = db.ref("users/" + driver.id + "/acceptedBy");
-  driverRef.transaction(current => {
-    if(!current) return [userNumber];
-    if(!current.includes(userNumber)) current.push(userNumber);
-    return current;
-  });
-
-  // dezaktywacja przycisków
-  prevDriverBtn.disabled = true;
-  nextDriverBtn.disabled = true;
-  acceptBtn.disabled = true;
-};
-
-
-
-
-  resetBtn.onclick = ()=>{
-    db.ref("users").remove();
-    db.ref("meta").remove(); // ⬅ reset licznika
-    gridStart=null; gridEnd=null;
-    usersData={};
-    matchedDrivers=[];
-    selectedDriverIndex=0;
-    driverBtn.disabled=false; passengerBtn.disabled=false;
-    initGrid();
+    getUserLocation();
   };
 
-goalBtn.onclick = () => {
-  goalEditMode = !goalEditMode;
+  goalBtn.onclick = () => {
+    goalEditMode = !goalEditMode;
+    goalBtn.textContent = goalEditMode ? '💾 Zapisz cel' : '🎯 Edytuj cel';
+  };
 
-  if (goalEditMode) {
-    goalBtn.textContent = '💾 Zapisz cel';
-  } else {
-    // Zapisanie celu i rysowanie trasy
-    goalEditMode = false;
-    goalBtn.textContent = '🎯 Edytuj cel';
+  // ====== MAPA ======
+  const map = L.map('map');
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap' }).addTo(map);
+  map.setView([52.23,21.01],13);
 
-    if (startMarker && goalMarker) {
-      const startLatLng = startMarker.getLatLng();
-      const endLatLng = goalMarker.getLatLng();
-      const color = role === 'driver' ? driverColors[userId] : 'green';
-      drawRouteOnMap(startLatLng, endLatLng, color, role);
-    }
-  }
-};
+  map.on('click', e => {
+    if(!goalEditMode || !userLocation) return;
 
-  // ====== DANE FIREBASE ======
-  function refreshUsers(snapshot){
-  usersData = snapshot.val() || {};
+    const endLatLng = { lat:e.latlng.lat, lng:e.latlng.lng };
+    drawRouteOnMap(userLocation, endLatLng, myColor, role);
 
- // ====== PASAŻEROWIE – ZAWSZE OD NOWA ======
-const passengers = Object.values(usersData)
-  .filter(u => u.role === 'passenger' && typeof u.number === 'number')
-  .sort((a, b) => a.number - b.number);
-
-passengersOrder = passengers.map(p => p.number);
-
-// kolory kierowców
-Object.entries(usersData).forEach(([id,u])=>{
-  if(u.role==='driver' && !u.color) u.color=getRandomColor();
-  if(u.role==='driver') driverColors[id]=u.color;
-});
-
-// natychmiastowe dopasowanie pasażera
-if(role==='passenger' && gridStart){
-  matchedDrivers = Object.entries(usersData)
-    .filter(([id,u])=> u.role==='driver' && u.start && u.end)
-    // 🔹 filtrujemy kierowców już zaakceptowanych przez innych pasażerów
-    .filter(([id,u]) => !Object.values(usersData).some(p => p.role==='passenger' && p.acceptedDriverId === id))
-    .filter(([id,u])=>{
-      const ps = gridStart;
-      const dStart=parseCell(u.start);
-      const dEnd=parseCell(u.end);
-      const cells = (dStart.r===dEnd.r)
-        ? Array.from({length:Math.abs(dEnd.c-dStart.c)+1},(_,i)=>({r:dStart.r,c:Math.min(dStart.c,dEnd.c)+i}))
-        : Array.from({length:Math.abs(dEnd.r-dStart.r)+1},(_,i)=>({r:Math.min(dStart.r,dEnd.r)+i,c:dStart.c}));
-      if(!cells.some(c => c.r === ps.r && c.c === ps.c)) return false;
-
-const pe = gridEnd;
-if(!pe) return false;
-
-return isSameDirection(dStart, dEnd, ps, pe);
-    }).map(([id,u])=>({id,...u}));
-  selectedDriverIndex=0;
-}
-
-
-
-updateUsersTable();
-updateGrid();
-}
-
-
-function updateUsersTable(){
-  updateUsersHeader();
-  usersTableBody.innerHTML='';
-
-  const passengers = Object.values(usersData).filter(u=>u.role==='passenger');
-  const drivers = Object.values(usersData).filter(u=>u.role==='driver');
-
-  drivers.forEach(driver=>{
-    const tr=document.createElement('tr');
-
-tr.innerHTML = `
-  <td>${driver.number}</td>
-  <td style="background:${driver.color||''}"></td>
-  ${passengersOrder.map(pNum=>{
-    const p = passengers.find(x=>x.number===pNum);
-    return `<td>${p && passengerOnDriverRoute(p,driver) ? 'O' : ''}</td>`;
-  }).join('')}
-`;
-
-
-    usersTableBody.appendChild(tr);
+    if(!goalMarker) goalMarker = L.marker([endLatLng.lat, endLatLng.lng]).addTo(map);
+    else goalMarker.setLatLng([endLatLng.lat, endLatLng.lng]);
   });
-}
 
+  // ====== FIREBASE ======
+  db.ref("users").on('value', snapshot => {
+    usersData = snapshot.val() || {};
 
-  db.ref("users").on('value',refreshUsers);
+    // kolory kierowców
+    Object.entries(usersData).forEach(([id,u]) => {
+      if(u.role==='driver' && !u.color) u.color=getRandomColor();
+      if(u.role==='driver') driverColors[id]=u.color;
+    });
 
-// ====== MAPA ======
-const map = L.map('map');
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap'
-}).addTo(map);
-
-// fallback (gdy GPS niedostępny)
-map.setView([52.23, 21.01], 13);
-
-// ====== CENTROWANIE MAPY NA UŻYTKOWNIKU ======
-function centerMapOnUser() {
-  if (!navigator.geolocation) return;
-
-  navigator.geolocation.getCurrentPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-
-    map.setView([lat, lng], 14);
+    updateUsersTable();
   });
-}
-
-map.on('click', e => {
-  if (!goalEditMode) return;
-
-  if (startMarker) {
-    const startLatLng = startMarker.getLatLng();
-    const endLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
-    const color = role === 'driver' ? driverColors[userId] : 'green';
-    drawRouteOnMap(startLatLng, endLatLng, color, role);
-
-    if (!goalMarker) {
-      goalMarker = L.marker([endLatLng.lat, endLatLng.lng]).addTo(map);
-    } else {
-      goalMarker.setLatLng([endLatLng.lat, endLatLng.lng]);
-    }
-  }
-});
-
-function drawRouteOnMap(startLatLng, endLatLng, color, role) {
-  // jeśli już istnieje, usuń poprzednią trasę
-  if (routeControl) {
-    map.removeControl(routeControl);
-  }
-
-  // tworzymy trasę
-  routeControl = L.Routing.control({
-    waypoints: [
-      L.latLng(startLatLng.lat, startLatLng.lng),
-      L.latLng(endLatLng.lat, endLatLng.lng)
-    ],
-    lineOptions: {
-      styles: [{ color: color, weight: 5 }]
-    },
-    router: L.Routing.osrmv1({
-      serviceUrl: 'https://router.project-osrm.org/route/v1',
-      profile: role === 'driver' ? 'car' : 'foot'
-    }),
-    show: false,
-    addWaypoints: false,
-    routeWhileDragging: false,
-    fitSelectedRoutes: true
-  }).addTo(map);
-}
-
-// ====== START ======
-initGrid();
-centerMapOnUser();
 </script>
 </body>
 </html>
