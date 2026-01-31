@@ -120,7 +120,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.1.9</h1>
+																<h1>Crossway – fundament 5.2.0</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -482,45 +482,51 @@ db.ref("session").on("value", () => {
 
 
 /* ================= ROLE ================= */
-function assign(role) {
-  const firstTimeChoosing = !currentRole; // pierwszy wybór
+async function assign(role) {
+  // Pobranie wszystkich obecnych użytkowników
+  const usersSnap = await db.ref("session/users").once("value");
+  const users = usersSnap.val() || {};
 
-  if (firstTimeChoosing) {
-    currentRole = role;
+  // Nadanie numeru w kolejności dołączania
+  const existingNumbers = Object.values(users)
+    .map(u => u.userNumber)
+    .filter(n => n !== undefined);
 
-    // 🔹 nowy zapis w Firebase: lista użytkowników
-    db.ref(`session/users/${userId}`).set({
-      role: role,
-      currentLocation: null,
-      destination: null,
-      accepted: false
-    });
-  }
+  const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
 
-  // Pobranie aktualnej lokalizacji
+  // Generowanie losowego koloru
+  const color = "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
+
+  // Unikalny ID (może być też userNumber, ale zostawiamy losowe dla bezpieczeństwa)
+  const userId = 'user_' + Math.random().toString(36).substr(2, 9);
+
+  // Zapis do Firebase
+  db.ref(`session/users/${userId}`).set({
+    role: role,
+    userNumber: nextNumber,  // numer użytkownika
+    color: color,            // kolor przypisany do użytkownika
+    currentLocation: null,
+    destination: null,
+    accepted: false
+  });
+
+  // Dalej standardowa logika — pobranie geolokalizacji, ustawienie markerów itd.
   navigator.geolocation.getCurrentPosition(p => {
     const lat = p.coords.latitude;
     const lng = p.coords.longitude;
 
-    // 🔹 zapis lokalizacji użytkownika w liście
     db.ref(`session/users/${userId}/currentLocation`).set({ latitude: lat, longitude: lng });
 
-    // Ustawienie markera startowego od razu na mapie
     if (role === "driver") driverStartMarker.setLatLng([lat, lng]);
     if (role === "passenger") passengerStartMarker.setLatLng([lat, lng]);
   });
 
-  // UI lokalne – guziki stają się nieaktywne
+  // UI — blokada guzika
   driverBtn.disabled = true;
   driverBtn.style.opacity = "0.4";
   passengerBtn.disabled = true;
   passengerBtn.style.opacity = "0.4";
-
-  // Pokazanie odpowiedniego panelu
-  if (role === "driver") driverDestinationDiv.style.display = "block";
-  if (role === "passenger") document.getElementById("passengerControls").style.display = "block";
 }
-
 
 driverBtn.onclick = () => {
   setBackgroundFromRoleButton(driverBtn);
@@ -531,6 +537,7 @@ passengerBtn.onclick = () => {
   setBackgroundFromRoleButton(passengerBtn);
   assign("passenger");
 };
+
 
 
 /* ================= BLOKADA RÓL ================= */
