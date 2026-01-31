@@ -105,7 +105,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.0.1</h1>
+																<h1>Crossway – fundament 5.0.2</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -318,8 +318,24 @@ async function update() {
   passengerLine.setLatLngs([]);
   overlapLine.setLatLngs([]);
 
-  const ds = (await db.ref("session/driver").once("value")).val();
-  const ps = (await db.ref("session/passenger").once("value")).val();
+// Pobranie danych z session
+const dsRaw = (await db.ref("session/driver").once("value")).val();
+const psRaw = (await db.ref("session/passenger").once("value")).val();
+
+// Pobranie wszystkich users
+const usersSnapshot = await db.ref("users").once("value");
+const users = usersSnapshot.val() || {};
+
+// Wybór danych kierowcy i pasażera
+let ds = dsRaw;
+let ps = psRaw;
+
+// Jeśli w users mamy odpowiadające role, nadpisujemy session
+for (const id in users) {
+  if (users[id].role === "driver") ds = users[id];
+  if (users[id].role === "passenger") ps = users[id];
+}
+
 
   let dPath = null;
   let pPath = null;
