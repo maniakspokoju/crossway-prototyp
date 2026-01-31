@@ -39,7 +39,7 @@ Szachownica - fundament/oryginał/perfekt
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.3.1</h1>
+															<h1>Crossway – Szachownica 5.3.2</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -104,6 +104,10 @@ Szachownica - fundament/oryginał/perfekt
   let selectedDriverIndex = 0;
   let passengersOrder = []; // [1,2,3...] – kolejność pasażerów
   let acceptedDriverId = null; // ID kierowcy zaakceptowanego przez pasażera
+  let myColor = null;          // kolor TEGO użytkownika
+  let userLocation = null;    // { lat, lng }
+  let myMarker = null;        // marker Leaflet
+
 
  
 
@@ -196,16 +200,25 @@ function saveRoute(){
 
   const start = `${gridStart.r},${gridStart.c}`;
   const end = `${gridEnd.r},${gridEnd.c}`;
-  const color = role==='driver' ? getRandomColor() : null;
+if (role === 'driver' && !myColor) {
+  myColor = getRandomColor();
+}
 
-  db.ref("users/"+userId).set({
-    number: userNumber,
-    role,
-    start,
-    end,
-    color,
-    acceptedBy: null
-  });
+const color = role === 'driver' ? myColor : null;
+
+
+db.ref("users/"+userId).set({
+  number: userNumber,
+  role,
+  start,
+  end,
+  color,
+  acceptedBy: null
+});
+
+// ⬇⬇⬇ DOKŁADNIE TUTAJ
+tryCreateMyMarker();
+
 
   // 🔹 dezaktywacja przycisków po ustaleniu trasy kierowcy
   if(role === 'driver') {
@@ -241,11 +254,12 @@ function assignUserNumber(callback){
   ref.transaction(current => {
     return (current || 0) + 1;
   }, (error, committed, snapshot) => {
-    if(committed){
-      userNumber = snapshot.val();
-      userId = String(userNumber); // ID = "1", "2", "3"
-      callback();
-    }
+if(committed){
+  userNumber = snapshot.val();
+  userId = String(userNumber);
+  tryCreateMyMarker();
+  callback();
+}
   });
 }
 
@@ -256,6 +270,59 @@ function assignUserNumber(callback){
     for(let i=0;i<6;i++) color += letters[Math.floor(Math.random()*16)];
     return color;
   }
+
+function tryCreateMyMarker() {
+  if (!map) return;
+  if (!userId) return;
+  if (!userNumber) return;
+  if (!myColor) return;
+  if (!userLocation) return;
+  if (myMarker) return; // ❗ nie tworzymy drugi raz
+
+  const icon = L.divIcon({
+    className: '',
+    html: `
+      <div style="
+        background:${myColor};
+        color:#fff;
+        width:26px;
+        height:26px;
+        border-radius:50%;
+        text-align:center;
+        line-height:26px;
+        font-weight:bold;
+        border:2px solid #000;
+      ">${userNumber}</div>
+    `,
+    iconSize: [26,26],
+    iconAnchor: [13,13]
+  });
+
+  myMarker = L.marker(
+    [userLocation.lat, userLocation.lng],
+    { icon }
+  ).addTo(map);
+
+  map.setView([userLocation.lat, userLocation.lng], 14);
+}
+
+
+function getUserLocation() {
+  if (!navigator.geolocation) {
+    alert("Brak obsługi GPS");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(pos => {
+    userLocation = {
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude
+    };
+    tryCreateMyMarker();
+  }, err => {
+    alert("Nie udało się pobrać lokalizacji");
+  });
+}
 
 function clearGridVisuals() {
   for (let r = 0; r < ROWS; r++) {
@@ -365,20 +432,27 @@ if(role==='passenger' && gridStart && gridEnd){
   }
 
   // ====== PRZYCISKI ======
-  driverBtn.onclick = ()=>{
-    role='driver';
-    gridStart=null; gridEnd=null;
-    document.body.style.backgroundColor="#ddeeff";
-    driverBtn.disabled=true; passengerBtn.disabled=true;
-    initGrid();
-  };
-  passengerBtn.onclick = ()=>{
-    role='passenger';
-    gridStart=null; gridEnd=null;
-    document.body.style.backgroundColor="#ddffdd";
-    driverBtn.disabled=true; passengerBtn.disabled=true;
-    initGrid();
-  };
+driverBtn.onclick = ()=>{
+  role='driver';
+  gridStart=null; gridEnd=null;
+  document.body.style.backgroundColor="#ddeeff";
+  driverBtn.disabled=true; passengerBtn.disabled=true;
+  initGrid();
+
+  getUserLocation(); // ⬅ GPS
+};
+
+passengerBtn.onclick = ()=>{
+  role='passenger';
+  gridStart=null; gridEnd=null;
+  document.body.style.backgroundColor="#ddffdd";
+  driverBtn.disabled=true; passengerBtn.disabled=true;
+  initGrid();
+
+  myColor = 'green'; // ⬅ STAŁY kolor pasażera
+  getUserLocation(); // ⬅ GPS
+};
+
 
   nextDriverBtn.onclick = ()=>{
     if(matchedDrivers.length===0) return;
