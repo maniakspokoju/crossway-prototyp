@@ -101,11 +101,26 @@ html, body {
 }
 
 
+#usersTable {
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+#usersTable th, #usersTable td {
+  padding: 8px;
+  border: 1px solid #333;
+}
+
+#usersTable tr:nth-child(even) {
+  background-color: #f0f0f0;
+}
+
+
 </style>
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.1.8</h1>
+																<h1>Crossway – fundament 5.1.9</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -142,6 +157,24 @@ html, body {
   <p id="passengerSavedInfo" style="color:#2fbf6f;"></p>
 </div>
 
+<!-- TABELA UŻYTKOWNIKÓW -->
+<h2>Użytkownicy w sesji</h2>
+<table id="usersTable" border="1" style="width:100%; text-align:center;">
+  <thead>
+    <tr>
+      <th>User ID</th>
+      <th>Rola</th>
+      <th>Current Location</th>
+      <th>Destination</th>
+      <th>Akceptacja</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- wiersze będą generowane dynamicznie przez JS -->
+  </tbody>
+</table>
+
+
 <div id="map"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -170,6 +203,13 @@ firebase.initializeApp({
 });
 const db = firebase.database();
 db.ref("session").remove();
+
+// nasłuchiwanie wszystkich użytkowników w sesji
+db.ref("session/users").on("value", snapshot => {
+  const users = snapshot.val() || {};
+  updateUsersTable(users);
+});
+
 
 // Unikalny identyfikator dla każdego użytkownika (losowy)
 const userId = 'user_' + Math.random().toString(36).substr(2, 9);
@@ -387,6 +427,52 @@ async function update() {
   }
 }
  // koniec funkcji update()
+
+
+// FUNKCJA DO AKTUALIZACJI TABELI
+function updateUsersTable(usersData) {
+  const tbody = document.querySelector("#usersTable tbody");
+  tbody.innerHTML = ""; // czyścimy stare wiersze
+
+  Object.entries(usersData).forEach(([uid, user]) => {
+    const tr = document.createElement("tr");
+
+    // User ID
+    const tdId = document.createElement("td");
+    tdId.textContent = uid;
+    tr.appendChild(tdId);
+
+    // Rola
+    const tdRole = document.createElement("td");
+    tdRole.textContent = user.role || "-";
+    tr.appendChild(tdRole);
+
+    // Current Location
+    const tdCurrent = document.createElement("td");
+    if (user.currentLocation) {
+      tdCurrent.textContent = `${user.currentLocation.latitude.toFixed(5)}, ${user.currentLocation.longitude.toFixed(5)}`;
+    } else {
+      tdCurrent.textContent = "-";
+    }
+    tr.appendChild(tdCurrent);
+
+    // Destination
+    const tdDest = document.createElement("td");
+    if (user.destination) {
+      tdDest.textContent = `${user.destination.latitude.toFixed(5)}, ${user.destination.longitude.toFixed(5)}`;
+    } else {
+      tdDest.textContent = "-";
+    }
+    tr.appendChild(tdDest);
+
+    // Akceptacja
+    const tdAccepted = document.createElement("td");
+    tdAccepted.textContent = user.accepted ? "TAK" : "NIE";
+    tr.appendChild(tdAccepted);
+
+    tbody.appendChild(tr);
+  });
+}
 
 
 db.ref("session").on("value", () => {
