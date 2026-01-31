@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.4.6</h1>
+															<h1>Crossway – Szachownica 5.4.9</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -211,6 +211,7 @@ if (role === 'driver' && !myColor) {
 
 const color = role === 'driver' ? myColor : null;
 
+
 db.ref("users/"+userId).set({
   number: userNumber,
   role,
@@ -219,7 +220,6 @@ db.ref("users/"+userId).set({
   color,
   acceptedBy: null
 });
-
 
 // ⬇⬇⬇ DOKŁADNIE TUTAJ
 tryCreateMyMarker();
@@ -256,32 +256,17 @@ function isSameDirection(driverStart, driverEnd, passengerStart, passengerEnd){
 
 function assignUserNumber(callback){
   const ref = db.ref("meta/nextUserNumber");
-  ref.transaction(current => (current || 0) + 1, (error, committed, snapshot) => {
-    if(committed){
-      userNumber = snapshot.val();
-      userId = String(userNumber);
-
-// w assignUserNumber callback
-myColor = role === 'driver' ? getRandomColor() : 'green';
-
-db.ref("users/" + userId).set({
-  number: userNumber,
-  role: role,
-  start: null,
-  end: null,
-  color: myColor,
-  acceptedBy: null
-});
-
-
-      // 🔹 od razu wyświetl w tabeli
-      updateUsersTable();
-
-      if(callback) callback();
-    }
+  ref.transaction(current => {
+    return (current || 0) + 1;
+  }, (error, committed, snapshot) => {
+if(committed){
+  userNumber = snapshot.val();
+  userId = String(userNumber);
+  tryCreateMyMarker();
+  callback();
+}
   });
 }
-
 
 
   function getRandomColor(){
