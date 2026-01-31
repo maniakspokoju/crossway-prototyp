@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.4.6</h1>
+															<h1>Crossway – Szachownica 5.4.7</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -294,10 +294,8 @@ db.ref("users/" + userId).set({
 function tryCreateMyMarker() {
   if (!map) return;
   if (!userId) return;
-  if (!userNumber) return;
-  if (!myColor) return;
   if (!userLocation) return;
-  if (myMarker) return; // ❗ nie tworzymy drugi raz
+  if (myMarker) return;
 
   const icon = L.divIcon({
     className: '',
@@ -318,11 +316,7 @@ function tryCreateMyMarker() {
     iconAnchor: [13,13]
   });
 
-  myMarker = L.marker(
-    [userLocation.lat, userLocation.lng],
-    { icon }
-  ).addTo(map);
-
+  myMarker = L.marker([userLocation.lat, userLocation.lng], { icon }).addTo(map);
   map.setView([userLocation.lat, userLocation.lng], 14);
 }
 
@@ -333,28 +327,29 @@ function getUserLocation() {
     return;
   }
 
-navigator.geolocation.getCurrentPosition(pos => {
-  const lat = pos.coords.latitude;
-  const lng = pos.coords.longitude;
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
 
-  userLocation = { lat, lng };
+    userLocation = { lat, lng };
 
-  // 🔹 utworzenie lub przesunięcie markera startu
-  if (!startMarker) {
-    startMarker = L.marker([lat, lng], { color: role === 'driver' ? driverColors[userId] : 'green' })
-                  .addTo(map)
-                  .bindPopup('Start');
-  } else {
-    startMarker.setLatLng([lat, lng]);
-  }
+    // 🔹 natychmiastowy marker użytkownika z numerem
+    tryCreateMyMarker();
 
-  // 🔹 oryginalna funkcja tworząca marker użytkownika
-  tryCreateMyMarker();
+    // 🔹 marker startu (opcjonalnie popup)
+    if (!startMarker) {
+      startMarker = L.marker([lat, lng])
+                    .addTo(map)
+                    .bindPopup('Start');
+    } else {
+      startMarker.setLatLng([lat, lng]);
+    }
 
-}, err => {
-  alert("Nie udało się pobrać lokalizacji");
-});
+  }, err => {
+    alert("Nie udało się pobrać lokalizacji");
+  });
 }
+
 
 function clearGridVisuals() {
   for (let r = 0; r < ROWS; r++) {
