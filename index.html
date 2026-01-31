@@ -2,41 +2,26 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Crossway – Szachownica</title>
+<title>Crossway – Map 5.5</title>
 <style>
   body { font-family: Arial, sans-serif; }
   #roleSelect { margin: 10px 0; }
-  .sharedCell { background-color: red !important; }
+  #controls { margin-top: 10px; }
   #usersTable { margin-top: 20px; border-collapse: collapse; width: 100%; }
   #usersTable th, #usersTable td { border: 1px solid #000; padding: 5px; text-align: center; }
-  #controls { margin-top: 10px; }
-  .driverCell, .passengerCell { color: #000; font-weight: bold; }
-#mainView {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-}
-
-#map {
-  width: 360px;
-  height: 360px;
-  border: 1px solid #aaa;
-}
-
+  #map { width: 360px; height: 360px; border: 1px solid #aaa; margin-top:20px; }
 </style>
+
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.min.js"></script>
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.4.2</h1>
+																	<h1>Crossway – Map 5.4.3</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -51,28 +36,20 @@
   <button id="goalBtn">🎯 Edytuj cel</button>
 </div>
 
-
 <div id="assignedPassenger" style="margin-top:10px; font-weight:bold;"></div>
-
-
-
-
-
 
 <h2>Użytkownicy / trasy</h2>
 <table id="usersTable">
-  <thead>
-   <tr id="usersHeader">
-  <th>ID</th>
-  <th>Kolor</th>
-</tr>
-
-  </thead>
+  <thead></thead>
   <tbody></tbody>
 </table>
 
+<div id="map"></div>
+
 <script>
-  // ====== CONFIG FIREBASE ======
+window.onload = () => {
+
+  // ====== FIREBASE ======
   const firebaseConfig = {
     apiKey: "YOUR_API_KEY",
     authDomain: "YOUR_AUTH_DOMAIN",
@@ -86,172 +63,159 @@
   const db = firebase.database();
 
   // ====== STANY ======
-  let userId = null;
-  let userNumber = null;
-  let role = null; // 'driver' lub 'passenger'
-  let usersData = {};
-  let myColor = null;
-  let userLocation = null;
-  let myMarker = null;
-  let goalEditMode = false;
-  let goalMarker = null;
-  let routeControl = null;
-
-  const driverColors = {};
-  const passengersOrder = [];
+  let userId=null, userNumber=null, role=null;
+  let myColor=null, userLocation=null, myMarker=null;
+  let goalEditMode=false, goalMarker=null, routeControl=null;
+  let startMarker=null, acceptedDriverId=null;
+  let usersData={}, passengersOrder=[], matchedDrivers=[], selectedDriverIndex=0;
+  const driverColors={};
 
   // ====== ELEMENTY ======
-  const driverBtn = document.getElementById('driverBtn');
-  const passengerBtn = document.getElementById('passengerBtn');
-  const usersTableBody = document.querySelector('#usersTable tbody');
-  const goalBtn = document.getElementById('goalBtn');
+  const driverBtn=document.getElementById('driverBtn');
+  const passengerBtn=document.getElementById('passengerBtn');
+  const prevDriverBtn=document.getElementById('prevDriverBtn');
+  const nextDriverBtn=document.getElementById('nextDriverBtn');
+  const acceptBtn=document.getElementById('acceptBtn');
+  const resetBtn=document.getElementById('resetBtn');
+  const goalBtn=document.getElementById('goalBtn');
+  const usersTableBody=document.querySelector('#usersTable tbody');
+  const usersTableHead=document.querySelector('#usersTable thead');
+
+  // ====== MAPA ======
+  const map = L.map('map').setView([52.23,21.01],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap' }).addTo(map);
 
   // ====== FUNKCJE ======
   function getRandomColor(){
-    const letters = '0123456789ABCDEF';
-    let color = '#';
-    for(let i=0;i<6;i++) color += letters[Math.floor(Math.random()*16)];
+    const letters='0123456789ABCDEF';
+    let color='#';
+    for(let i=0;i<6;i++) color+=letters[Math.floor(Math.random()*16)];
     return color;
   }
 
   function assignUserNumber(callback){
-    const ref = db.ref("meta/nextUserNumber");
-    ref.transaction(current => (current || 0) + 1, (error, committed, snapshot) => {
+    db.ref("meta/nextUserNumber").transaction(current => (current||0)+1, (err, committed, snapshot)=>{
       if(committed){
-        userNumber = snapshot.val();
-        userId = String(userNumber);
+        userNumber=snapshot.val();
+        userId=String(userNumber);
         callback();
       }
     });
   }
 
-  function tryCreateMyMarker() {
-    if (!map || !userId || !userNumber || !myColor || !userLocation) return;
-    if (myMarker) return; // nie tworzymy drugi raz
+  function tryCreateMyMarker(){
+    if(!map || !userId || !userNumber || !myColor || !userLocation || myMarker) return;
 
     const icon = L.divIcon({
       className: '',
-      html: `<div style="
-        background:${myColor};
-        color:#fff;
-        width:26px;
-        height:26px;
-        border-radius:50%;
-        text-align:center;
-        line-height:26px;
-        font-weight:bold;
-        border:2px solid #000;
-      ">${userNumber}</div>`,
+      html: `<div style="background:${myColor}; color:#fff; width:26px; height:26px; border-radius:50%; text-align:center; line-height:26px; font-weight:bold; border:2px solid #000;">${userNumber}</div>`,
       iconSize: [26,26],
       iconAnchor: [13,13]
     });
 
-    myMarker = L.marker([userLocation.lat, userLocation.lng], { icon }).addTo(map);
-    map.setView([userLocation.lat, userLocation.lng], 14);
+    myMarker = L.marker([userLocation.lat,userLocation.lng],{icon}).addTo(map);
+    map.setView([userLocation.lat,userLocation.lng],14);
   }
 
-  function getUserLocation() {
-    if (!navigator.geolocation) { alert("Brak obsługi GPS"); return; }
+  function getUserLocation(){
+    if(!navigator.geolocation){ alert("Brak obsługi GPS"); return; }
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat=pos.coords.latitude, lng=pos.coords.longitude;
+      userLocation={lat,lng};
 
-    navigator.geolocation.getCurrentPosition(pos => {
-      userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      if(!startMarker){
+        startMarker=L.marker([lat,lng],{color:role==='driver'?driverColors[userId]:'green'}).addTo(map).bindPopup('Start');
+      } else {
+        startMarker.setLatLng([lat,lng]);
+      }
+
       tryCreateMyMarker();
-    }, err => { alert("Nie udało się pobrać lokalizacji"); });
+    }, ()=>alert("Nie udało się pobrać lokalizacji"));
   }
 
   function updateUsersHeader(){
-    const thead = document.querySelector('#usersTable thead');
-    thead.innerHTML = `<tr><th>#</th><th>Kolor</th></tr>`;
+    usersTableHead.innerHTML = `<tr><th>#</th><th>Kolor</th>${passengersOrder.map(n=>`<th>${n}</th>`).join('')}</tr>`;
+  }
+
+  function passengerOnDriverRoute(p, d){
+    if(!p.start || !d.start) return false;
+    // uproszczone, możesz dopisać logikę tras
+    return true;
   }
 
   function updateUsersTable(){
     updateUsersHeader();
-    usersTableBody.innerHTML = '';
+    usersTableBody.innerHTML='';
 
-    Object.values(usersData).forEach(u => {
-      const tr = document.createElement('tr');
-      const color = u.color || '';
-      tr.innerHTML = `<td>${u.number}</td><td style="background:${color}"></td>`;
+    const passengers = Object.values(usersData).filter(u=>u.role==='passenger');
+    const drivers = Object.values(usersData).filter(u=>u.role==='driver');
+
+    drivers.forEach(d=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
+        <td>${d.number}</td>
+        <td style="background:${d.color||''}"></td>
+        ${passengersOrder.map(pn=>{
+          const p = passengers.find(x=>x.number===pn);
+          return `<td>${p && passengerOnDriverRoute(p,d)?'O':''}</td>`;
+        }).join('')}
+      `;
       usersTableBody.appendChild(tr);
     });
   }
 
-  function drawRouteOnMap(startLatLng, endLatLng, color, role){
-    if(routeControl) map.removeControl(routeControl);
+  function refreshUsers(snapshot){
+    usersData = snapshot.val()||{};
+    const passengers = Object.values(usersData).filter(u=>u.role==='passenger' && typeof u.number==='number').sort((a,b)=>a.number-b.number);
+    passengersOrder = passengers.map(p=>p.number);
 
-    routeControl = L.Routing.control({
-      waypoints: [L.latLng(startLatLng.lat, startLatLng.lng), L.latLng(endLatLng.lat, endLatLng.lng)],
-      lineOptions: { styles:[{ color: color, weight: 5 }] },
-      router: L.Routing.osrmv1({
-        serviceUrl:'https://router.project-osrm.org/route/v1',
-        profile: role==='driver'?'car':'foot'
-      }),
-      show:false,
-      addWaypoints:false,
-      routeWhileDragging:false,
-      fitSelectedRoutes:true
-    }).addTo(map);
-  }
-
-  // ====== PRZYCISKI ======
-  driverBtn.onclick = () => {
-    role = 'driver';
-    document.body.style.backgroundColor = "#ddeeff";
-    driverBtn.disabled = passengerBtn.disabled = true;
-
-    assignUserNumber(() => {
-      myColor = getRandomColor();
-      updateUsersTable();
-    });
-
-    getUserLocation();
-  };
-
-  passengerBtn.onclick = () => {
-    role = 'passenger';
-    document.body.style.backgroundColor = "#ddffdd";
-    driverBtn.disabled = passengerBtn.disabled = true;
-
-    assignUserNumber(() => {
-      myColor = 'green';
-      updateUsersTable();
-    });
-
-    getUserLocation();
-  };
-
-  goalBtn.onclick = () => {
-    goalEditMode = !goalEditMode;
-    goalBtn.textContent = goalEditMode ? '💾 Zapisz cel' : '🎯 Edytuj cel';
-  };
-
-  // ====== MAPA ======
-  const map = L.map('map');
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap' }).addTo(map);
-  map.setView([52.23,21.01],13);
-
-  map.on('click', e => {
-    if(!goalEditMode || !userLocation) return;
-
-    const endLatLng = { lat:e.latlng.lat, lng:e.latlng.lng };
-    drawRouteOnMap(userLocation, endLatLng, myColor, role);
-
-    if(!goalMarker) goalMarker = L.marker([endLatLng.lat, endLatLng.lng]).addTo(map);
-    else goalMarker.setLatLng([endLatLng.lat, endLatLng.lng]);
-  });
-
-  // ====== FIREBASE ======
-  db.ref("users").on('value', snapshot => {
-    usersData = snapshot.val() || {};
-
-    // kolory kierowców
-    Object.entries(usersData).forEach(([id,u]) => {
+    Object.entries(usersData).forEach(([id,u])=>{
       if(u.role==='driver' && !u.color) u.color=getRandomColor();
       if(u.role==='driver') driverColors[id]=u.color;
     });
 
     updateUsersTable();
-  });
+  }
+
+  // ====== PRZYCISKI ======
+  driverBtn.onclick=()=>{
+    role='driver';
+    document.body.style.backgroundColor="#ddeeff";
+    driverBtn.disabled=true; passengerBtn.disabled=true;
+    assignUserNumber(()=>{
+      myColor=getRandomColor();
+      updateUsersTable();
+    });
+    getUserLocation();
+  };
+
+  passengerBtn.onclick=()=>{
+    role='passenger';
+    document.body.style.backgroundColor="#ddffdd";
+    driverBtn.disabled=true; passengerBtn.disabled=true;
+    assignUserNumber(()=>{
+      myColor='green';
+      updateUsersTable();
+    });
+    getUserLocation();
+  };
+
+  resetBtn.onclick=()=>{
+    db.ref("users").remove();
+    db.ref("meta").remove();
+    usersData={}; passengersOrder=[]; matchedDrivers=[]; selectedDriverIndex=0;
+    driverBtn.disabled=false; passengerBtn.disabled=false;
+  };
+
+  goalBtn.onclick=()=>{
+    goalEditMode=!goalEditMode;
+    goalBtn.textContent = goalEditMode ? '💾 Zapisz cel':'🎯 Edytuj cel';
+  };
+
+  db.ref("users").on('value',refreshUsers);
+
+};
 </script>
+
 </body>
 </html>
