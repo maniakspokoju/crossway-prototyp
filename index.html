@@ -35,11 +35,10 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.min.js"></script>
-<script type="module" src="webpage_content_reporter.js"></script>
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.3.8</h1>
+															<h1>Crossway – Szachownica 5.3.9</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -644,17 +643,16 @@ map.on('click', e => {
     lng: e.latlng.lng
   };
 
-if (gridStart) { // gridStart zawiera lokalizację startu
-  const startLatLng = { lat: startMarker.getLatLng().lat, lng: startMarker.getLatLng().lng };
-  const endLatLng = { lat: goalLocation.lat, lng: goalLocation.lng };
+if (startMarker && goalEditMode) {
+  const startLatLng = startMarker.getLatLng();
+  const endLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
   const color = role === 'driver' ? driverColors[userId] : 'green';
   drawRouteOnMap(startLatLng, endLatLng, color, role);
-}
 
   if (!goalMarker) {
-    goalMarker = L.marker([goalLocation.lat, goalLocation.lng]).addTo(map);
+    goalMarker = L.marker([endLatLng.lat, endLatLng.lng]).addTo(map);
   } else {
-    goalMarker.setLatLng([goalLocation.lat, goalLocation.lng]);
+    goalMarker.setLatLng([endLatLng.lat, endLatLng.lng]);
   }
 });
 
