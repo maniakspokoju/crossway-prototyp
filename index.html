@@ -105,7 +105,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.0.4</h1>
+																<h1>Crossway – fundament 5.0.5</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -318,24 +318,23 @@ async function update() {
   passengerLine.setLatLngs([]);
   overlapLine.setLatLngs([]);
 
-// Pobranie danych z session
-const usersSnapshot = await db.ref("users").once("value");
-const users = usersSnapshot.val() || {};
+  // Pobranie wszystkich users
+  const usersSnapshot = await db.ref("users").once("value");
+  const users = usersSnapshot.val() || {};
 
-let ds = null;
-let ps = null;
+  let ds = null;
+  let ps = null;
 
-for (const id in users) {
-  if (users[id].role === "driver") ds = users[id];
-  if (users[id].role === "passenger") ps = users[id];
-}
-
-
+  // Wybór danych kierowcy i pasażera
+  for (const id in users) {
+    if (users[id].role === "driver") ds = users[id];
+    if (users[id].role === "passenger") ps = users[id];
+  }
 
   let dPath = null;
   let pPath = null;
 
-  /* ================= TRASA KIEROWCY (ZAWSZE) ================= */
+  /* ================= TRASA KIEROWCY ================= */
   if (ds?.currentLocation && ds?.destination) {
     dPath = await route(
       [ds.currentLocation.latitude, ds.currentLocation.longitude],
@@ -370,39 +369,40 @@ for (const id in users) {
   }
 
   /* ================= TRASA WSPÓLNA ================= */
-let overlapExists = false; // 🔹 flaga do guzika akceptacji
+  let overlapExists = false;
 
-if (dPath && pPath) {
-  const startPassenger = [ps.currentLocation.latitude, ps.currentLocation.longitude];
-  const startIdx = findClosestIndex(startPassenger, dPath);
-  if (startIdx !== -1) {
-    let endIdx = -1;
+  if (dPath && pPath) {
+    const startPassenger = [ps.currentLocation.latitude, ps.currentLocation.longitude];
+    const startIdx = findClosestIndex(startPassenger, dPath);
+    if (startIdx !== -1) {
+      let endIdx = -1;
 
-    if (currentMode === "A") {
-      const hits = [];
-      dPath.forEach((dp, i) => pPath.forEach(pp => {
-        if (distanceMeters(dp, pp) <= TOLERANCE_METERS) hits.push(i);
-      }));
-      const valid = [...new Set(hits)].filter(i => i >= startIdx);
-      if (valid.length >= 2) endIdx = Math.max(...valid);
-    }
+      if (currentMode === "A") {
+        const hits = [];
+        dPath.forEach((dp, i) => pPath.forEach(pp => {
+          if (distanceMeters(dp, pp) <= TOLERANCE_METERS) hits.push(i);
+        }));
+        const valid = [...new Set(hits)].filter(i => i >= startIdx);
+        if (valid.length >= 2) endIdx = Math.max(...valid);
+      }
 
-    if (currentMode === "B") {
-      const passengerDest = [ps.destination.latitude, ps.destination.longitude];
-      endIdx = findBestExitIndex(dPath, passengerDest, startIdx);
-    }
+      if (currentMode === "B") {
+        const passengerDest = [ps.destination.latitude, ps.destination.longitude];
+        endIdx = findBestExitIndex(dPath, passengerDest, startIdx);
+      }
 
-    if (endIdx !== -1) {
-      overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
-      overlapExists = true; // 🔹 jest wspólna trasa
+      if (endIdx !== -1) {
+        overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
+        overlapExists = true;
+      }
     }
   }
-}
 
-// 🔹 Aktywacja/dezaktywacja przycisku Akceptuj trasę
-if (!acceptLocked) {
-  acceptBtn.disabled = !overlapExists;
-  acceptBtn.style.opacity = overlapExists ? "1" : "0.4";
+  // 🔹 Aktywacja/dezaktywacja przycisku Akceptuj trasę
+  if (!acceptLocked) {
+    acceptBtn.disabled = !overlapExists;
+    acceptBtn.style.opacity = overlapExists ? "1" : "0.4";
+  }
 }
 
 
