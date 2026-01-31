@@ -37,7 +37,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.3.5</h1>
+															<h1>Crossway – Szachownica 5.3.6</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -49,6 +49,7 @@
   <button id="nextDriverBtn">➡ Dalej</button>
   <button id="acceptBtn">✅ Akceptuj</button>
   <button id="resetBtn">🛑 Zakończ przejazd</button>
+  <button id="goalBtn">🎯 Edytuj cel</button>
 </div>
 
 
@@ -103,6 +104,10 @@
   let myColor = null;          // kolor TEGO użytkownika
   let userLocation = null;    // { lat, lng }
   let myMarker = null;        // marker Leaflet
+  let goalEditMode = false;   // czy edytujemy cel
+  let goalMarker = null;     // marker celu
+  let goalLocation = null;   // { lat, lng }
+
 
 
  
@@ -119,6 +124,7 @@
   const acceptBtn = document.getElementById('acceptBtn');
   const resetBtn = document.getElementById('resetBtn');
   const usersTableBody = document.querySelector('#usersTable tbody');
+  const goalBtn = document.getElementById('goalBtn');
 
   // ====== INICJALIZACJA GRIDU ======
   function initGrid() {
@@ -497,6 +503,17 @@ acceptBtn.onclick = () => {
     initGrid();
   };
 
+goalBtn.onclick = () => {
+  goalEditMode = !goalEditMode;
+
+  if (goalEditMode) {
+    goalBtn.textContent = '💾 Zapisz cel';
+  } else {
+    goalBtn.textContent = '🎯 Edytuj cel';
+    // tu później można zapisać do Firebase
+  }
+};
+
   // ====== DANE FIREBASE ======
   function refreshUsers(snapshot){
   usersData = snapshot.val() || {};
@@ -592,6 +609,21 @@ function centerMapOnUser() {
     map.setView([lat, lng], 14);
   });
 }
+
+map.on('click', e => {
+  if (!goalEditMode) return;
+
+  goalLocation = {
+    lat: e.latlng.lat,
+    lng: e.latlng.lng
+  };
+
+  if (!goalMarker) {
+    goalMarker = L.marker([goalLocation.lat, goalLocation.lng]).addTo(map);
+  } else {
+    goalMarker.setLatLng([goalLocation.lat, goalLocation.lng]);
+  }
+});
 
 // ====== START ======
 initGrid();
