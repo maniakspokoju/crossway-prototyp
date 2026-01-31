@@ -105,7 +105,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 5.1.4</h1>
+																<h1>Crossway – fundament 5.1.5</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -424,37 +424,10 @@ function assign(role) {
   passengerBtn.disabled = true;
   passengerBtn.style.opacity = "0.4";
 
-}
-
-  // Pobranie aktualnej lokalizacji
-  navigator.geolocation.getCurrentPosition(p => {
-    const lat = p.coords.latitude;
-    const lng = p.coords.longitude;
-
-    // Zapis w Firebase
-    db.ref(`session/${role}/currentLocation`).set({ latitude: lat, longitude: lng });
-
-    // 🔹 Ustawienie markera startowego od razu na mapie
-    if (role === "driver") driverStartMarker.setLatLng([lat, lng]);
-    if (role === "passenger") passengerStartMarker.setLatLng([lat, lng]);
-  });
-
-  // UI
-  modeBtn.style.display = role === "passenger" ? "inline-block" : "none";
-
+  // Pokazanie odpowiedniego panelu
   if (role === "driver") driverDestinationDiv.style.display = "block";
-
-if (role === "passenger") {
-  document.getElementById("passengerControls").style.display = "block";
+  if (role === "passenger") document.getElementById("passengerControls").style.display = "block";
 }
-
-
-  // Odśwież dostępność guzika
-  updateRoleAvailability();
-}
-
-
-
 
 
 driverBtn.onclick = () => {
