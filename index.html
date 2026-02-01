@@ -56,7 +56,7 @@ body {
 
 <body>
 
-<h1 style="margin:5px 10px;">Crossway – 5.7.0</h1>
+														<h1 style="margin:5px 10px;">Crossway – 5.7.1</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -256,9 +256,6 @@ document.getElementById("passengerBtn").onclick = ()=>{document.body.style.backg
 /* ================= SYNC USERS ================= */
 /*
 db.ref("session/users").on("value", snap=>{
-  // komentarz lub usunięcie tej pętli
-});
-*/
   const allUsers = snap.val()||{};
   for(let uid in allUsers){
     if(usersMarkers[uid]) continue;
@@ -273,6 +270,8 @@ db.ref("session/users").on("value", snap=>{
     if(data.destination) drawUserRoute(uid);
   }
 });
+*/
+
 </script>
 
 </body>
