@@ -1,3 +1,5 @@
+Końcowy etap
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -105,7 +107,7 @@ html, body {
 </head>
 
 <body>
-																<h1>Crossway – fundament 4.9</h1>
+																<h1>Crossway – fundament 5.1.1</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -119,6 +121,10 @@ html, body {
   <div style="display:flex; gap:10px; margin-bottom:10px;">
     <button id="modeBtn" style="flex:5;">Tryb A</button>
     <button id="acceptBtn" style="flex:8; background:#ff5722; color:white;">Akceptuj trasę</button>
+  </div>
+  <div style="display:flex; gap:10px; margin-bottom:10px;">
+    <button id="prevDriverBtn" style="flex:1;">◀ Cofnij</button>
+    <button id="nextDriverBtn" style="flex:1;">Dalej ▶</button>
   </div>
   <div style="display:flex; gap:10px;">
     <button id="saveDestinationBtn" style="flex:1;">Edytuj cel</button>
@@ -389,8 +395,31 @@ function assign(role) {
   if (firstTimeChoosing) {
     currentRole = role;
 
-    // Zapis roli w Firebase
-    db.ref("session/" + role).set({ role });
+// Generowanie unikalnego ID dla nowego użytkownika
+const userId = 'user_' + Date.now();  // np. user_1678945623456
+
+// Kolor losowy dla użytkownika
+function getRandomColor() {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
+  return color;
+}
+const userColor = getRandomColor();
+
+// Zapis użytkownika do listy w Firebase
+db.ref(`session/users/${userId}`).set({
+  role: role,
+  color: userColor,
+  createdAt: Date.now()
+});
+
+    // 🔹 UI lokalne – guziki stają się nieaktywne tylko na tym urządzeniu
+    driverBtn.disabled = true;
+    driverBtn.style.opacity = "0.4";
+    passengerBtn.disabled = true;
+    passengerBtn.style.opacity = "0.4";
+
   }
 
   // Pobranie aktualnej lokalizacji
