@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.6.6</h1>
+															<h1>Crossway – Szachownica 5.6.7</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -51,7 +51,7 @@
   <button id="acceptBtn">✅ Akceptuj</button>
   <button id="resetBtn">🛑 Zakończ przejazd</button>
   <button id="goalBtn">🎯 Edytuj cel</button>
-<button id="editStartBtn">✏️ Edytuj start</button>
+
 </div>
 
 
@@ -110,8 +110,6 @@
   let goalMarker = null;
   let routeControl = null;
   const driverColors = {};
-  let editStartMode = false;
-
 
   // ====== ELEMENTY ======
   const gridEl = document.getElementById('grid');
@@ -309,35 +307,6 @@ map.on('click', e => {
   drawRouteOnMap(userLocation, endLatLng, color, role);
 });
 
-map.on('click', e => {
-  if (!userLocation) return;
-
-  const latLng = { lat: e.latlng.lat, lng: e.latlng.lng };
-
-  if (editStartMode && role === 'passenger') {
-    // 🔹 ustawiamy nowy start pasażera
-    userLocation = latLng;
-    if(myMarker){
-      myMarker.setLatLng(latLng);
-    } else {
-      const icon = L.divIcon({
-        className:'',
-        html:`<div style="background:${myColor};color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:bold;border:2px solid #000;">${userNumber}</div>`,
-        iconSize:[26,26],
-        iconAnchor:[13,13]
-      });
-      myMarker = L.marker(latLng, {icon}).addTo(map);
-    }
-    // 🔹 zapis do Firebase
-    db.ref(`users/${userId}`).update({lat: latLng.lat, lng: latLng.lng});
-    
-    // 🔹 wyłączamy tryb edycji
-    editStartMode = false;
-    editStartBtn.textContent = '✏️ Edytuj/Zapisz start';
-    alert("Start pasażera zapisany!");
-  }
-});
-
 
   // ====== PRZYCISKI ======
   driverBtn.onclick = ()=>{
@@ -360,20 +329,6 @@ map.on('click', e => {
     driverBtn.disabled=false; passengerBtn.disabled=false;
     initGrid();
   };
-
-const editStartBtn = document.getElementById('editStartBtn');
-
-editStartBtn.onclick = () => {
-  if (role !== 'passenger') return;
-
-  editStartMode = !editStartMode;
-  editStartBtn.textContent = editStartMode ? '💾 Zapisz start' : '✏️ Edytuj/Zapisz start';
-
-  if(editStartMode){
-    alert("Kliknij na mapie, aby ustawić nową lokalizację startu.");
-  }
-};
-
 
   // ====== USERS TABLE ======
   function updateUsersHeader(){
