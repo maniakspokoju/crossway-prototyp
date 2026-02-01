@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.5.6</h1>
+															<h1>Crossway – Szachownica 5.5.7</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -260,12 +260,31 @@ function getUserLocation(){
 
   function drawRouteOnMap(startLatLng,endLatLng,color,role){
     if(routeControl) map.removeControl(routeControl);
-    routeControl=L.Routing.control({
-      waypoints:[L.latLng(startLatLng.lat,startLatLng.lng),L.latLng(endLatLng.lat,endLatLng.lng)],
-      lineOptions:{styles:[{color:color,weight:5}]},
-      router:L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1',profile:role==='driver'?'car':'foot'}),
-      show:false, addWaypoints:false, routeWhileDragging:false, fitSelectedRoutes:true
-    }).addTo(map);
+routeControl = L.Routing.control({
+  waypoints: [
+    L.latLng(startLatLng.lat, startLatLng.lng), // start (GPS)
+    L.latLng(endLatLng.lat, endLatLng.lng)      // cel
+  ],
+  lineOptions: {
+    styles: [{ color: color, weight: 5 }]
+  },
+  router: L.Routing.osrmv1({
+    serviceUrl: 'https://router.project-osrm.org/route/v1',
+    profile: role === 'driver' ? 'car' : 'foot'
+  }),
+
+  // 🔴 kluczowe:
+  createMarker: function(i, wp) {
+    if (i === 0) return null;   // ❌ usuń pinezkę STARTU
+    return null;               // (jeśli chcesz też bez pinezki celu)
+  },
+
+  show: false,
+  addWaypoints: false,
+  routeWhileDragging: false,
+  fitSelectedRoutes: true
+}).addTo(map);
+
   }
 
 map.on('click', e => {
