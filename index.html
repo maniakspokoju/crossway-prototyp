@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.8.5</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.8.6</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -126,7 +126,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 const overlapLine = L.polyline([], { color: "red", weight: 7 }).addTo(map);
 
 /* ================= UTILS ================= */
-const TOLERANCE_METERS = 160;
+//const TOLERANCE_METERS = 160;
 function distanceMeters(a,b){
   const R=6371000,dLat=(b[0]-a[0])*Math.PI/180,dLng=(b[1]-a[1])*Math.PI/180,x=dLng*Math.cos((a[0]+b[0])/2*Math.PI/180);
   return Math.sqrt(dLat*dLat+x*x)*R;
@@ -253,7 +253,6 @@ saveDestinationBtn.onclick = async ()=>{
 
 if (currentRole === "passenger") {
   findMatchingDrivers(currentUserId);
-console.log(matchingDrivers);
   showCurrentDriver();
 }
   }
@@ -277,7 +276,6 @@ saveStartBtn.onclick = async ()=>{
 
     if (currentRole === "passenger") {
       findMatchingDrivers(currentUserId);
-console.log(matchingDrivers);
       showCurrentDriver();
     }
   }
@@ -301,7 +299,10 @@ db.ref("session/mode").on("value", snap=>{
 });
 
 /* ================= OVERLAP ================= */
-function findMatchingDrivers(passengerId){
+const TOLERANCE_METERS = 150; // zwiększona tolerancja, aby łatwiej dopasować trasę
+
+// Szuka kierowców, których trasa zawiera start pasażera
+function findMatchingDrivers(passengerId) {
   matchingDrivers = [];
   currentDriverIndex = 0;
 
@@ -309,6 +310,7 @@ function findMatchingDrivers(passengerId){
   if (!passenger) return;
 
   const pStart = passenger.startMarker.getLatLng();
+  console.log("Passenger start:", pStart);
 
   for (let uid in usersMarkers) {
     const user = usersMarkers[uid];
@@ -316,53 +318,57 @@ function findMatchingDrivers(passengerId){
 
     const path = user.line.getLatLngs();
     if (!path || path.length === 0) continue;
+    console.log("Driver", uid, "path length:", path.length);
 
     const idx = findClosestIndex([pStart.lat, pStart.lng], path);
     if (idx !== -1) {
-      matchingDrivers.push({
-        driverId: uid,
-        fromIndex: idx
-      });
+      matchingDrivers.push({ driverId: uid, fromIndex: idx });
     }
   }
 
-  // POKAZUJEMY GUZIKI NA PRZEGLĄDANIE
+  // pokaż pierwszego dopasowanego kierowcę
   if (matchingDrivers.length > 0) {
     document.getElementById("driverBrowseControls").style.display = "flex";
+    showCurrentDriver();
   } else {
+    overlapLine.setLatLngs([]);
     document.getElementById("driverBrowseControls").style.display = "none";
   }
+
+  console.log("Matching drivers:", matchingDrivers);
 }
 
-
-function showCurrentDriver(){
+// Wyświetla trasę aktualnego dopasowanego kierowcy
+function showCurrentDriver() {
   overlapLine.setLatLngs([]);
 
   if (matchingDrivers.length === 0) return;
 
   const match = matchingDrivers[currentDriverIndex];
   const driver = usersMarkers[match.driverId];
-
   if (!driver) return;
 
   const path = driver.line.getLatLngs();
   overlapLine.setLatLngs(path.slice(match.fromIndex));
 }
 
-
+// Guziki do przełączania między kierowcami
 document.getElementById("nextDriverBtn").onclick = () => {
-  const p = usersMarkers[currentUserId];
-  if (!p || p.currentDriverIndex >= p.matchingDrivers.length - 1) return;
-  p.currentDriverIndex++;
-  showCurrentDriver();
+  if (matchingDrivers.length === 0) return;
+  if (currentDriverIndex < matchingDrivers.length - 1) {
+    currentDriverIndex++;
+    showCurrentDriver();
+  }
 };
 
 document.getElementById("prevDriverBtn").onclick = () => {
-  const p = usersMarkers[currentUserId];
-  if (!p || p.currentDriverIndex <= 0) return;
-  p.currentDriverIndex--;
-  showCurrentDriver();
+  if (matchingDrivers.length === 0) return;
+  if (currentDriverIndex > 0) {
+    currentDriverIndex--;
+    showCurrentDriver();
+  }
 };
+
 
 
 
