@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.8.2</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.8.3</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -323,7 +323,15 @@ function findMatchingDrivers(passengerId){
       });
     }
   }
+
+  // POKAZUJEMY GUZIKI NA PRZEGLĄDANIE
+  if (matchingDrivers.length > 0) {
+    document.getElementById("driverBrowseControls").style.display = "flex";
+  } else {
+    document.getElementById("driverBrowseControls").style.display = "none";
+  }
 }
+
 
 function showCurrentDriver(){
   overlapLine.setLatLngs([]);
