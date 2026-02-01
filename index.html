@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.7.9</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.8.0</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -107,6 +107,9 @@ let editingDestination = false;
 let editingStart = false;
 let currentMode = "A";
 let acceptLocked = false;
+let matchingDrivers = [];
+let currentDriverIndex = 0;
+
 
 // ===== Funkcja pobierająca kolejny numer użytkownika =====
 async function getNextUserId() {
@@ -295,65 +298,46 @@ db.ref("session/mode").on("value", snap=>{
 });
 
 /* ================= OVERLAP ================= */
-async function checkOverlaps(){
- // if(currentRole!=="passenger") return;
-//  const passenger = usersMarkers[currentUserId];
-//  overlapLine.setLatLngs([]);
-//  for(let uid in usersMarkers){
- //   const user = usersMarkers[uid];
-//    if(user.role!=="driver") continue;
-//    const dPath=user.line.getLatLngs();
-//    const pStart = passenger.startMarker.getLatLng();
-//    const startIdx=findClosestIndex([pStart.lat,pStart.lng],dPath);
-//    if(startIdx!==-1){
- //     overlapLine.setLatLngs(dPath.slice(startIdx));
-//      break;
-//    }
-//  }
-}
+function findMatchingDrivers(passengerId){
+  matchingDrivers = [];
+  currentDriverIndex = 0;
 
-function findMatchingDrivers(passengerId) {
   const passenger = usersMarkers[passengerId];
-  const pStart = passenger.startMarker.getLatLng();
+  if (!passenger) return;
 
-  passenger.matchingDrivers = [];
-  passenger.currentDriverIndex = 0;
+  const pStart = passenger.startMarker.getLatLng();
 
   for (let uid in usersMarkers) {
     const user = usersMarkers[uid];
     if (user.role !== "driver") continue;
 
-    const dPath = user.line.getLatLngs();
-    if (!dPath || dPath.length === 0) continue;
+    const path = user.line.getLatLngs();
+    if (!path || path.length === 0) continue;
 
-    const idx = findClosestIndex([pStart.lat, pStart.lng], dPath);
+    const idx = findClosestIndex([pStart.lat, pStart.lng], path);
     if (idx !== -1) {
-      passenger.matchingDrivers.push({
+      matchingDrivers.push({
         driverId: uid,
-        startIndex: idx
+        fromIndex: idx
       });
     }
   }
-
-  document.getElementById("driverBrowseControls").style.display =
-    passenger.matchingDrivers.length > 1 ? "flex" : "none";
 }
 
-
-function showCurrentDriver(passengerId) {
-  const passenger = usersMarkers[passengerId];
+function showCurrentDriver(){
   overlapLine.setLatLngs([]);
 
-  if (!passenger.matchingDrivers.length) return;
+  if (matchingDrivers.length === 0) return;
 
-  const { driverId, startIndex } =
-    passenger.matchingDrivers[passenger.currentDriverIndex];
+  const match = matchingDrivers[currentDriverIndex];
+  const driver = usersMarkers[match.driverId];
 
-  const driverPath =
-    usersMarkers[driverId].line.getLatLngs();
+  if (!driver) return;
 
-  overlapLine.setLatLngs(driverPath.slice(startIndex));
+  const path = driver.line.getLatLngs();
+  overlapLine.setLatLngs(path.slice(match.fromIndex));
 }
+
 
 document.getElementById("nextDriverBtn").onclick = () => {
   const p = usersMarkers[currentUserId];
