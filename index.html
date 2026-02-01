@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.9.0</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.9.1</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -250,33 +250,26 @@ saveDriverDestinationBtn.onclick = async ()=>{
   selectedPoint=null;
 };
 
+// ================= SAVE DESTINATION =================
 const saveDestinationBtn = document.getElementById("saveDestinationBtn");
 saveDestinationBtn.onclick = async () => {
-  if(!editingDestination) {
+  if (!editingDestination) {
     editingDestination = true;
     saveDestinationBtn.innerText = "Zapisz cel";
     return;
   }
 
-  if(selectedPoint){
+  if (selectedPoint) {
     usersMarkers[currentUserId].endMarker.setLatLng(selectedPoint);
-    db.ref(`session/users/${currentUserId}/destination`).set({
+    await db.ref(`session/users/${currentUserId}/destination`).set({
       latitude: selectedPoint[0],
       longitude: selectedPoint[1]
     });
 
     await drawUserRoute(currentUserId);
 
-    if(currentRole === "passenger") {
-      // Rysujemy trasy wszystkich kierowców i czekamy
-      const driverPromises = Object.values(usersMarkers)
-        .filter(u => u.role === "driver")
-        .map(u => drawUserRoute(u));
-
-      await Promise.all(driverPromises);
-
-      // Dopiero teraz szukamy dopasowanych kierowców
-      findMatchingDrivers(currentUserId);
+    if (currentRole === "passenger") {
+      await findMatchingDrivers(currentUserId);
       showCurrentDriver();
     }
   }
@@ -286,34 +279,26 @@ saveDestinationBtn.onclick = async () => {
   selectedPoint = null;
 };
 
-
+// ================= SAVE START =================
 const saveStartBtn = document.getElementById("saveStartBtn");
 saveStartBtn.onclick = async () => {
-  if(!editingStart) {
+  if (!editingStart) {
     editingStart = true;
     saveStartBtn.innerText = "Zapisz start";
     return;
   }
 
-  if(selectedPoint){
+  if (selectedPoint) {
     usersMarkers[currentUserId].startMarker.setLatLng(selectedPoint);
-    db.ref(`session/users/${currentUserId}/currentLocation`).set({
+    await db.ref(`session/users/${currentUserId}/currentLocation`).set({
       latitude: selectedPoint[0],
       longitude: selectedPoint[1]
     });
 
     await drawUserRoute(currentUserId);
 
-    if(currentRole === "passenger") {
-      // Rysujemy trasy wszystkich kierowców i czekamy
-      const driverPromises = Object.values(usersMarkers)
-        .filter(u => u.role === "driver")
-        .map(u => drawUserRoute(u));
-
-      await Promise.all(driverPromises);
-
-      // Dopiero teraz szukamy dopasowanych kierowców
-      findMatchingDrivers(currentUserId);
+    if (currentRole === "passenger") {
+      await findMatchingDrivers(currentUserId);
       showCurrentDriver();
     }
   }
@@ -340,7 +325,7 @@ db.ref("session/mode").on("value", snap=>{
 /* ================= OVERLAP ================= */
 const TOLERANCE_METERS = 150; // zwiększona tolerancja, aby łatwiej dopasować trasę
 
-function findMatchingDrivers(passengerId) {
+async function findMatchingDrivers(passengerId) {
   matchingDrivers = [];
   currentDriverIndex = 0;
 
@@ -350,6 +335,13 @@ function findMatchingDrivers(passengerId) {
   const pStart = passenger.startMarker.getLatLng();
   const pEnd = passenger.endMarker.getLatLng();
   console.log("Passenger start:", pStart);
+
+  // Upewniamy się, że wszystkie trasy kierowców są aktualne
+  const driverPromises = Object.values(usersMarkers)
+    .filter(u => u.role === "driver")
+    .map(u => drawUserRoute(u));
+
+  await Promise.all(driverPromises);
 
   for (let uid in usersMarkers) {
     const user = usersMarkers[uid];
@@ -361,9 +353,8 @@ function findMatchingDrivers(passengerId) {
 
     const startIdx = findClosestIndex([pStart.lat, pStart.lng], path);
     if (startIdx !== -1) {
-      // Obliczamy koniec wspólnej trasy (endIdx)
       let endIdx = findClosestIndex([pEnd.lat, pEnd.lng], path);
-      if (endIdx === -1 || endIdx < startIdx) endIdx = path.length - 1; // fallback do końca trasy
+      if (endIdx === -1 || endIdx < startIdx) endIdx = path.length - 1;
       matchingDrivers.push({ driverId: uid, fromIndex: startIdx, toIndex: endIdx });
     }
   }
@@ -378,6 +369,7 @@ function findMatchingDrivers(passengerId) {
 
   console.log("Matching drivers:", matchingDrivers);
 }
+
 
 
 
