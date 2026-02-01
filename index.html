@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.6.4</h1>
+															<h1>Crossway – Szachownica 5.6.5</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -362,6 +362,71 @@ map.on('click', e => {
     updateUsersTable();
     updateGrid();
   });
+
+// 🔹 Sprawdzamy kierowców dla pasażera
+function updateMatchedDrivers() {
+  if(role!=='passenger' || !gridStart) return;
+
+  matchedDrivers = Object.entries(usersData)
+    .filter(([id,u])=>u.role==='driver' && !u.acceptedBy && u.start && u.end)
+    .map(([id,u])=>({id, start:u.start, end:u.end, color:u.color||'blue'}))
+    .filter(d=>passengerOnDriverRoute({start:`${gridStart.r},${gridStart.c}`}, d));
+
+  selectedDriverIndex = 0;
+  updateMapDriverRoute();
+}
+
+// 🔹 Rysujemy trasę aktualnego kierowcy u pasażera
+let driverLine=null, overlapLine=null;
+function updateMapDriverRoute() {
+  if(driverLine) map.removeLayer(driverLine);
+  if(overlapLine) map.removeLayer(overlapLine);
+
+  if(!matchedDrivers[selectedDriverIndex]) return;
+  const driver = matchedDrivers[selectedDriverIndex];
+  const startLatLng = gridToLatLng(parseCell(driver.start));
+  const endLatLng = gridToLatLng(parseCell(driver.end));
+  driverLine = L.polyline([startLatLng, endLatLng], {color: driver.color, weight:5}).addTo(map);
+
+  // 🔴 wspólne odcinki (na razie u pasażera)
+  const sharedCells = getSharedCells(gridStart, gridEnd, parseCell(driver.start), parseCell(driver.end));
+  if(sharedCells.length) {
+    const points = sharedCells.map(c=>gridToLatLng(c));
+    overlapLine = L.polyline(points, {color:'red', weight:7}).addTo(map);
+  }
+}
+
+// 🔹 Przeliczanie tras po zmianie użytkowników
+db.ref("users").on('value',snapshot=>{
+  usersData=snapshot.val()||{};
+  updateUsersTable();
+  updateGrid();
+  updateMatchedDrivers();
+});
+
+// 🔹 Przeglądanie kierowców
+nextDriverBtn.onclick = ()=>{
+  if(matchedDrivers.length===0) return;
+  selectedDriverIndex = (selectedDriverIndex+1)%matchedDrivers.length;
+  updateMapDriverRoute();
+};
+prevDriverBtn.onclick = ()=>{
+  if(matchedDrivers.length===0) return;
+  selectedDriverIndex = (selectedDriverIndex-1+matchedDrivers.length)%matchedDrivers.length;
+  updateMapDriverRoute();
+};
+
+// 🔹 Akceptacja trasy
+acceptBtn.onclick = ()=>{
+  if(matchedDrivers[selectedDriverIndex]){
+    acceptedDriverId = matchedDrivers[selectedDriverIndex].id;
+    db.ref(`users/${userId}/acceptedBy`).set(acceptedDriverId);
+    db.ref(`users/${acceptedDriverId}/acceptedBy`).set(userId); // żeby kierowca wiedział
+    updateMapDriverRoute();
+    updateGrid();
+  }
+};
+
 
   // ====== START ======
 initGrid();
