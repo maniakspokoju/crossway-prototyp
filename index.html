@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.5.7</h1>
+															<h1>Crossway – Szachownica 5.5.8</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -276,7 +276,7 @@ routeControl = L.Routing.control({
   // 🔴 kluczowe:
   createMarker: function(i, wp) {
     if (i === 0) return null;   // ❌ usuń pinezkę STARTU
-    return null;               // (jeśli chcesz też bez pinezki celu)
+   return L.marker(wp.latLng);     // cel → pinezka
   },
 
   show: false,
