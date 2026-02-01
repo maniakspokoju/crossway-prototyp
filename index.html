@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.6.0</h1>
+															<h1>Crossway – Szachownica 5.6.1</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -248,26 +248,20 @@ function getUserLocation(){
         if(userNumber){
           const icon = L.divIcon({
             className:'',
-            html:`<div style="background:${myColor};color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:bold;border:2px solid #000;">${userNumber}</div>`,
-            iconSize:[26,26],
-            iconAnchor:[13,13]
-          });
-          myMarker = L.marker([lat,lng], {icon}).addTo(map);
-        } else {
-          // jeśli userNumber jeszcze nie jest znany, tworzymy zwykły marker
-          myMarker = L.marker([lat,lng]).addTo(map);
-        }
-      } else {
-        // 🔹 aktualizacja pozycji markera w czasie rzeczywistym
-        myMarker.setLatLng([lat,lng]);
+          html:`<div style="background:${myColor};color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:bold;border:2px solid #000;">${userNumber}</div>`,
+          iconSize:[26,26],
+          iconAnchor:[13,13]
+        });
+        myMarker = L.marker([lat,lng], {icon}).addTo(map);
       }
 
+      if(myMarker) myMarker.setLatLng([lat,lng]);
     },
     err => { alert("Nie udało się pobrać lokalizacji"); },
     {
-      enableHighAccuracy: true,  // dokładny GPS
-      timeout: 10000,
-      maximumAge: 0
+      enableHighAccuracy: true,   // 🔹 dokładniejszy GPS
+      timeout: 10000,             // maks. czas oczekiwania 10s
+      maximumAge: 0               // nie używamy starej pozycji z cache
     }
   );
 }
