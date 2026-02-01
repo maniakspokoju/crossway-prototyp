@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.8.6</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.8.7</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -301,7 +301,6 @@ db.ref("session/mode").on("value", snap=>{
 /* ================= OVERLAP ================= */
 const TOLERANCE_METERS = 150; // zwiększona tolerancja, aby łatwiej dopasować trasę
 
-// Szuka kierowców, których trasa zawiera start pasażera
 function findMatchingDrivers(passengerId) {
   matchingDrivers = [];
   currentDriverIndex = 0;
@@ -310,6 +309,7 @@ function findMatchingDrivers(passengerId) {
   if (!passenger) return;
 
   const pStart = passenger.startMarker.getLatLng();
+  const pEnd = passenger.endMarker.getLatLng();
   console.log("Passenger start:", pStart);
 
   for (let uid in usersMarkers) {
@@ -320,13 +320,15 @@ function findMatchingDrivers(passengerId) {
     if (!path || path.length === 0) continue;
     console.log("Driver", uid, "path length:", path.length);
 
-    const idx = findClosestIndex([pStart.lat, pStart.lng], path);
-    if (idx !== -1) {
-      matchingDrivers.push({ driverId: uid, fromIndex: idx });
+    const startIdx = findClosestIndex([pStart.lat, pStart.lng], path);
+    if (startIdx !== -1) {
+      // Obliczamy koniec wspólnej trasy (endIdx)
+      let endIdx = findClosestIndex([pEnd.lat, pEnd.lng], path);
+      if (endIdx === -1 || endIdx < startIdx) endIdx = path.length - 1; // fallback do końca trasy
+      matchingDrivers.push({ driverId: uid, fromIndex: startIdx, toIndex: endIdx });
     }
   }
 
-  // pokaż pierwszego dopasowanego kierowcę
   if (matchingDrivers.length > 0) {
     document.getElementById("driverBrowseControls").style.display = "flex";
     showCurrentDriver();
@@ -337,6 +339,8 @@ function findMatchingDrivers(passengerId) {
 
   console.log("Matching drivers:", matchingDrivers);
 }
+
+
 
 // Wyświetla trasę aktualnego dopasowanego kierowcy
 function showCurrentDriver() {
@@ -349,8 +353,9 @@ function showCurrentDriver() {
   if (!driver) return;
 
   const path = driver.line.getLatLngs();
-  overlapLine.setLatLngs(path.slice(match.fromIndex));
+  overlapLine.setLatLngs(path.slice(match.fromIndex, match.toIndex + 1));
 }
+
 
 // Guziki do przełączania między kierowcami
 document.getElementById("nextDriverBtn").onclick = () => {
