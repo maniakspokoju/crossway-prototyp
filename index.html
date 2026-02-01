@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.8.1</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.8.2</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -107,8 +107,8 @@ let editingDestination = false;
 let editingStart = false;
 let currentMode = "A";
 let acceptLocked = false;
-let matchingDrivers = [];
-let currentDriverIndex = 0;
+// let matchingDrivers = [];
+// let currentDriverIndex = 0;
 
 
 // ===== Funkcja pobierająca kolejny numer użytkownika =====
@@ -253,7 +253,7 @@ saveDestinationBtn.onclick = async ()=>{
 
 if (currentRole === "passenger") {
   findMatchingDrivers(currentUserId);
-  showCurrentDriver(currentUserId);
+  showCurrentDriver();
 }
   }
   editingDestination=false;
@@ -276,7 +276,7 @@ saveStartBtn.onclick = async ()=>{
 
     if (currentRole === "passenger") {
       findMatchingDrivers(currentUserId);
-      showCurrentDriver(currentUserId);
+      showCurrentDriver();
     }
   }
 
@@ -325,7 +325,7 @@ function findMatchingDrivers(passengerId){
   }
 }
 
-function showCurrentDriver(currentUserId){
+function showCurrentDriver(){
   overlapLine.setLatLngs([]);
 
   if (matchingDrivers.length === 0) return;
@@ -344,14 +344,14 @@ document.getElementById("nextDriverBtn").onclick = () => {
   const p = usersMarkers[currentUserId];
   if (!p || p.currentDriverIndex >= p.matchingDrivers.length - 1) return;
   p.currentDriverIndex++;
-  showCurrentDriver(currentUserId);
+  showCurrentDriver();
 };
 
 document.getElementById("prevDriverBtn").onclick = () => {
   const p = usersMarkers[currentUserId];
   if (!p || p.currentDriverIndex <= 0) return;
   p.currentDriverIndex--;
-  showCurrentDriver(currentUserId);
+  showCurrentDriver();
 };
 
 
