@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.9.4</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.9.5</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -321,11 +321,20 @@ modeBtn.onclick = ()=>{
   const newMode = currentMode==="A"?"B":"A";
   db.ref("session/mode").set(newMode);
 };
+
+// Funkcja do odświeżania dopasowań po zmianie trybu
+function checkOverlaps(){
+  if(currentRole==="passenger"){
+    findMatchingDrivers(currentUserId).then(()=>showCurrentDriver());
+  }
+}
+
 db.ref("session/mode").on("value", snap=>{
-  if(snap.val()) currentMode=snap.val();
-  modeBtn.innerText="Tryb "+currentMode;
-  if(currentRole==="passenger") checkOverlaps();
+  if(snap.val()) currentMode = snap.val();
+  modeBtn.innerText = "Tryb " + currentMode;
+  checkOverlaps(); // teraz już istnieje, nie powoduje błędu
 });
+
 
 /* ================= OVERLAP ================= */
 //const TOLERANCE_METERS = 150; // zwiększona tolerancja, aby łatwiej dopasować trasę
