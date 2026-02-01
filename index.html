@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.9.5</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.9.6</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -472,7 +472,14 @@ db.ref("session/users").on("value", async snap => {
 
     const startMarker = L.marker([startLat, startLng], { icon: createIcon(uid, color) }).addTo(map);
     const endMarker = L.marker([endLat, endLng], { icon: createIcon(uid, color) }).addTo(map);
-    const line = L.polyline([], { color, weight: 5 }).addTo(map);
+    const line = L.polyline([], { color, weight: 5 });
+
+  const line = L.polyline([], { color, weight: 5 });
+
+if (currentRole === "driver") {
+  line.addTo(map);
+}
+
 
     usersMarkers[uid] = { startMarker, endMarker, line, role, color };
 
