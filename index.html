@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.5.3</h1>
+															<h1>Crossway – Szachownica 5.5.2</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -230,24 +230,24 @@
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
   map.setView([52.23,21.01],13);
 
-function getUserLocation() {
-  if (!navigator.geolocation) {
-    alert("Brak obsługi GPS");
-    return;
+  function getUserLocation(){
+    if(!navigator.geolocation){ alert("Brak obsługi GPS"); return; }
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat=pos.coords.latitude, lng=pos.coords.longitude;
+      userLocation={lat,lng};
+
+      // marker numer+kolor
+      if(!myMarker){
+        const icon=L.divIcon({
+          className:'',
+          html:`<div style="background:${myColor};color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:bold;border:2px solid #000;">${userNumber}</div>`,
+          iconSize:[26,26], iconAnchor:[13,13]
+        });
+        myMarker=L.marker([lat,lng],{icon}).addTo(map);
+        map.setView([lat,lng],14);
+      } else myMarker.setLatLng([lat,lng]);
+    },err=>{alert("Nie udało się pobrać lokalizacji");});
   }
-
-  navigator.geolocation.getCurrentPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-
-    userLocation = { lat, lng };
-
-
-  }, err => {
-    alert("Nie udało się pobrać lokalizacji");
-  });
-}
-
 
   function drawRouteOnMap(startLatLng,endLatLng,color,role){
     if(routeControl) map.removeControl(routeControl);
@@ -265,9 +265,10 @@ map.on('click', e => {
   const endLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
   const color = role === 'driver' ? myColor : 'green';
 
+  // 🔹 usuwamy goalMarker – nie tworzymy pinezki celu
+  // tylko rysujemy trasę od startu do klikniętego punktu
   drawRouteOnMap(userLocation, endLatLng, color, role);
 });
-
 
 
   // ====== PRZYCISKI ======
