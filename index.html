@@ -56,7 +56,7 @@ body {
 
 <body>
 
-														<h1 style="margin:5px 10px;">Crossway – 5.7.1</h1>
+														<h1 style="margin:5px 10px;">Crossway – 5.7.2</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -132,12 +132,13 @@ async function route(a,b){
 
 /* ================= CREATE USER ================= */
 async function createUser(role){
-  currentUserId = db.ref("session/users").push().key;
+  currentUserId = await getNextUserId(); // nowy numer: 1,2,3...
   currentRole = role;
+
   const startMarker = L.marker([0,0], {icon:createIcon(role)}).addTo(map);
   const endMarker = L.marker([0,0], {icon:createIcon(role)}).addTo(map);
   const line = L.polyline([], { color: role==="driver"?"blue":"green", weight:5 }).addTo(map);
-  usersMarkers[currentUserId]={startMarker,endMarker,line,role};
+  usersMarkers[currentUserId] = {startMarker,endMarker,line,role};
 
   navigator.geolocation.getCurrentPosition(p=>{
     const lat=p.coords.latitude, lng=p.coords.longitude;
