@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.8.8</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.8.9</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -259,9 +259,17 @@ saveDestinationBtn.onclick = async ()=>{
     await drawUserRoute(currentUserId);
 
 if (currentRole === "passenger") {
+  // najpierw upewniamy się, że wszystkie trasy kierowców są narysowane
+  for (let uid in usersMarkers) {
+    const user = usersMarkers[uid];
+    if (user.role === "driver") await drawUserRoute(uid);
+  }
+
+  // teraz dopasowujemy pasażera
   findMatchingDrivers(currentUserId);
   showCurrentDriver();
 }
+
   }
   editingDestination=false;
   saveDestinationBtn.innerText="Edytuj cel";
@@ -281,10 +289,18 @@ saveStartBtn.onclick = async ()=>{
 
     await drawUserRoute(currentUserId);
 
-    if (currentRole === "passenger") {
-      findMatchingDrivers(currentUserId);
-      showCurrentDriver();
-    }
+   if (currentRole === "passenger") {
+  // najpierw upewniamy się, że wszystkie trasy kierowców są narysowane
+  for (let uid in usersMarkers) {
+    const user = usersMarkers[uid];
+    if (user.role === "driver") await drawUserRoute(uid);
+  }
+
+  // teraz dopasowujemy pasażera
+  findMatchingDrivers(currentUserId);
+  showCurrentDriver();
+}
+
   }
 
   editingStart=false;
