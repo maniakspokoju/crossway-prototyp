@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.8.0</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.8.1</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -183,10 +183,11 @@ const line = L.polyline([], {
   endMarker,
   line,
   role,
-  color: userColor
+  color: userColor,
   matchingDrivers: [],
   currentDriverIndex: 0
 };
+
 
 
   navigator.geolocation.getCurrentPosition(p=>{
@@ -324,7 +325,7 @@ function findMatchingDrivers(passengerId){
   }
 }
 
-function showCurrentDriver(){
+function showCurrentDriver(currentUserId){
   overlapLine.setLatLngs([]);
 
   if (matchingDrivers.length === 0) return;
