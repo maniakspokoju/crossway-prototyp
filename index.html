@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.7.7</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.7.8</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -154,6 +154,8 @@ async function createUser(role){
   currentUserId = await getNextUserId(); // nowy numer: 1,2,3...
   currentRole = role;
 
+  const userColor = role === "driver" ? randomColor() : "green";
+
 const startMarker = L.marker([0,0], {
   icon: createIcon(currentUserId, userColor)
 }).addTo(map);
@@ -161,9 +163,6 @@ const startMarker = L.marker([0,0], {
 const endMarker = L.marker([0,0], {
   icon: createIcon(currentUserId, userColor)
 }).addTo(map);
-
-
-  const userColor = role === "driver" ? randomColor() : "green";
 
 const line = L.polyline([], {
   color: userColor,
