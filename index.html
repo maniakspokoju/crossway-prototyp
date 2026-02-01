@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.8.7</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.8.8</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -134,11 +134,18 @@ function distanceMeters(a,b){
 function findClosestIndex(point,path){
   let min=Infinity, idx=-1;
   path.forEach((p,i)=>{
-    const d = distanceMeters(point,[p.lat,p.lng]);
+    let pLat, pLng;
+    if(Array.isArray(p)){
+      [pLat,pLng]=p;
+    } else {
+      pLat = p.lat; pLng = p.lng;
+    }
+    const d = distanceMeters(point,[pLat,pLng]);
     if(d<min){min=d;idx=i;}
   });
   return min<=TOLERANCE_METERS?idx:-1;
 }
+
 function createIcon(userId, color){
   return L.divIcon({
     html:`<div style="font-size:26px;font-weight:bold;color:${color}">${userId}</div>`,
