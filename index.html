@@ -56,7 +56,7 @@ body {
 
 <body>
 
-<h1 style="margin:5px 10px;">Crossway – Multi-user</h1>
+<h1 style="margin:5px 10px;">Crossway – 5.7.0</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -233,20 +233,20 @@ db.ref("session/mode").on("value", snap=>{
 
 /* ================= OVERLAP ================= */
 async function checkOverlaps(){
-  if(currentRole!=="passenger") return;
-  const passenger = usersMarkers[currentUserId];
-  overlapLine.setLatLngs([]);
-  for(let uid in usersMarkers){
-    const user = usersMarkers[uid];
-    if(user.role!=="driver") continue;
-    const dPath=user.line.getLatLngs();
-    const pStart = passenger.startMarker.getLatLng();
-    const startIdx=findClosestIndex([pStart.lat,pStart.lng],dPath);
-    if(startIdx!==-1){
-      overlapLine.setLatLngs(dPath.slice(startIdx));
-      break;
-    }
-  }
+ // if(currentRole!=="passenger") return;
+//  const passenger = usersMarkers[currentUserId];
+//  overlapLine.setLatLngs([]);
+//  for(let uid in usersMarkers){
+ //   const user = usersMarkers[uid];
+//    if(user.role!=="driver") continue;
+//    const dPath=user.line.getLatLngs();
+//    const pStart = passenger.startMarker.getLatLng();
+//    const startIdx=findClosestIndex([pStart.lat,pStart.lng],dPath);
+//    if(startIdx!==-1){
+ //     overlapLine.setLatLngs(dPath.slice(startIdx));
+//      break;
+//    }
+//  }
 }
 
 /* ================= EVENTY ROLE ================= */
@@ -254,7 +254,11 @@ document.getElementById("driverBtn").onclick = ()=>{document.body.style.backgrou
 document.getElementById("passengerBtn").onclick = ()=>{document.body.style.backgroundColor="#2fbf6f"; createUser("passenger");};
 
 /* ================= SYNC USERS ================= */
+/*
 db.ref("session/users").on("value", snap=>{
+  // komentarz lub usunięcie tej pętli
+});
+*/
   const allUsers = snap.val()||{};
   for(let uid in allUsers){
     if(usersMarkers[uid]) continue;
