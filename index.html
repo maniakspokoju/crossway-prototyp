@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.8.3</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.8.4</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -126,7 +126,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 const overlapLine = L.polyline([], { color: "red", weight: 7 }).addTo(map);
 
 /* ================= UTILS ================= */
-const TOLERANCE_METERS = 60;
+const TOLERANCE_METERS = 160;
 function distanceMeters(a,b){
   const R=6371000,dLat=(b[0]-a[0])*Math.PI/180,dLng=(b[1]-a[1])*Math.PI/180,x=dLng*Math.cos((a[0]+b[0])/2*Math.PI/180);
   return Math.sqrt(dLat*dLat+x*x)*R;
