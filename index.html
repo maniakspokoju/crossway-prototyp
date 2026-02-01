@@ -56,7 +56,7 @@ body {
 
 <body>
 
-														<h1 style="margin:5px 10px;">Crossway – 5.7.2</h1>
+														<h1 style="margin:5px 10px;">Crossway – 5.7.3</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -101,6 +101,15 @@ let editingDestination = false;
 let editingStart = false;
 let currentMode = "A";
 let acceptLocked = false;
+
+// ===== Funkcja pobierająca kolejny numer użytkownika =====
+async function getNextUserId() {
+  const userCountRef = db.ref("session/userCount");
+  const snapshot = await userCountRef.transaction(current => {
+    return (current || 0) + 1; // jeśli brak, ustaw 1, inaczej zwiększ
+  });
+  return snapshot.snapshot.val(); // to będzie numer kolejnego użytkownika
+}
 
 /* ================= MAPA ================= */
 const map = L.map("map").setView([52.1, 19.9], 12);
