@@ -38,7 +38,7 @@
 </head>
 <body>
 
-															<h1>Crossway – Szachownica 5.5.8</h1>
+															<h1>Crossway – Szachownica 5.5.9</h1>
 
 <div id="roleSelect">
   <button id="driverBtn">Kierowca</button>
@@ -233,29 +233,37 @@
 function getUserLocation(){
   if(!navigator.geolocation){ return; }
 
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-    userLocation = {lat,lng};
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      userLocation = {lat,lng};
 
-    // 🔹 samo centrowanie mapy – zawsze
-    map.setView([lat, lng], 14);
+      // 🔹 samo centrowanie mapy – zawsze
+      map.setView([lat, lng], 14);
 
-    // marker tworzony dopiero gdy mamy userNumber
-    if(userNumber && !myMarker){
-      const icon = L.divIcon({
-        className:'',
-        html:`<div style="background:${myColor};color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:bold;border:2px solid #000;">${userNumber}</div>`,
-        iconSize:[26,26],
-        iconAnchor:[13,13]
-      });
-      myMarker = L.marker([lat,lng],{icon}).addTo(map);
+      // marker tworzony dopiero gdy mamy userNumber
+      if(userNumber && !myMarker){
+        const icon = L.divIcon({
+          className:'',
+          html:`<div style="background:${myColor};color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:bold;border:2px solid #000;">${userNumber}</div>`,
+          iconSize:[26,26],
+          iconAnchor:[13,13]
+        });
+        myMarker = L.marker([lat,lng], {icon}).addTo(map);
+      }
+
+      if(myMarker) myMarker.setLatLng([lat,lng]);
+    },
+    err => { alert("Nie udało się pobrać lokalizacji"); },
+    {
+      enableHighAccuracy: true,   // 🔹 dokładniejszy GPS
+      timeout: 10000,             // maks. czas oczekiwania 10s
+      maximumAge: 0               // nie używamy starej pozycji z cache
     }
-
-    if(myMarker) myMarker.setLatLng([lat,lng]);
-
-  });
+  );
 }
+
 
 
   function drawRouteOnMap(startLatLng,endLatLng,color,role){
