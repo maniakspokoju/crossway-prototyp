@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.9.1</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.9.2</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -131,20 +131,25 @@ function distanceMeters(a,b){
   const R=6371000,dLat=(b[0]-a[0])*Math.PI/180,dLng=(b[1]-a[1])*Math.PI/180,x=dLng*Math.cos((a[0]+b[0])/2*Math.PI/180);
   return Math.sqrt(dLat*dLat+x*x)*R;
 }
-function findClosestIndex(point,path){
-  let min=Infinity, idx=-1;
-  path.forEach((p,i)=>{
+const TOLERANCE_METERS = 250; // większa tolerancja
+
+function findClosestIndex(point, path){
+  let min = Infinity, idx = -1;
+  path.forEach((p, i) => {
     let pLat, pLng;
     if(Array.isArray(p)){
-      [pLat,pLng]=p;
+      [pLat, pLng] = p;
     } else {
       pLat = p.lat; pLng = p.lng;
     }
-    const d = distanceMeters(point,[pLat,pLng]);
-    if(d<min){min=d;idx=i;}
+    const d = distanceMeters(point, [pLat, pLng]);
+    if(d < min){ min = d; idx = i; }
   });
-  return min<=TOLERANCE_METERS?idx:-1;
+  // dodatkowy log dla debugowania
+  // console.log("Closest distance:", min, "TOLERANCE_METERS:", TOLERANCE_METERS);
+  return min <= TOLERANCE_METERS ? idx : -1;
 }
+
 
 function createIcon(userId, color){
   return L.divIcon({
@@ -323,40 +328,43 @@ db.ref("session/mode").on("value", snap=>{
 });
 
 /* ================= OVERLAP ================= */
-const TOLERANCE_METERS = 150; // zwiększona tolerancja, aby łatwiej dopasować trasę
+//const TOLERANCE_METERS = 150; // zwiększona tolerancja, aby łatwiej dopasować trasę
 
 async function findMatchingDrivers(passengerId) {
+  if (!usersMarkers[passengerId]) return;
+
   matchingDrivers = [];
   currentDriverIndex = 0;
 
   const passenger = usersMarkers[passengerId];
-  if (!passenger) return;
-
   const pStart = passenger.startMarker.getLatLng();
   const pEnd = passenger.endMarker.getLatLng();
-  console.log("Passenger start:", pStart);
+  console.log("Passenger start:", pStart, "end:", pEnd);
 
-  // Upewniamy się, że wszystkie trasy kierowców są aktualne
+  // Upewniamy się, że wszystkie trasy kierowców są w pełni wygenerowane
   const driverPromises = Object.values(usersMarkers)
     .filter(u => u.role === "driver")
     .map(u => drawUserRoute(u));
 
   await Promise.all(driverPromises);
 
+  // iterujemy po wszystkich kierowcach
   for (let uid in usersMarkers) {
-    const user = usersMarkers[uid];
-    if (user.role !== "driver") continue;
+    const driver = usersMarkers[uid];
+    if(driver.role !== "driver") continue;
 
-    const path = user.line.getLatLngs();
-    if (!path || path.length === 0) continue;
-    console.log("Driver", uid, "path length:", path.length);
+    const path = driver.line.getLatLngs();
+    if(!path || path.length === 0) continue;
 
+    // szukamy punktu startu pasażera w trasie kierowcy
     const startIdx = findClosestIndex([pStart.lat, pStart.lng], path);
-    if (startIdx !== -1) {
-      let endIdx = findClosestIndex([pEnd.lat, pEnd.lng], path);
-      if (endIdx === -1 || endIdx < startIdx) endIdx = path.length - 1;
-      matchingDrivers.push({ driverId: uid, fromIndex: startIdx, toIndex: endIdx });
-    }
+    if(startIdx === -1) continue;
+
+    // szukamy punktu końcowego pasażera w trasie kierowcy
+    let endIdx = findClosestIndex([pEnd.lat, pEnd.lng], path);
+    if(endIdx === -1 || endIdx < startIdx) endIdx = path.length - 1;
+
+    matchingDrivers.push({ driverId: uid, fromIndex: startIdx, toIndex: endIdx });
   }
 
   if (matchingDrivers.length > 0) {
@@ -369,6 +377,7 @@ async function findMatchingDrivers(passengerId) {
 
   console.log("Matching drivers:", matchingDrivers);
 }
+
 
 
 
