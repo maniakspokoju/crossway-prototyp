@@ -56,7 +56,7 @@ body {
 
 <body>
 
-														<h1 style="margin:5px 10px;">Crossway – 5.7.3</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.7.5</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -130,8 +130,13 @@ function findClosestIndex(point,path){
   });
   return min<=TOLERANCE_METERS?idx:-1;
 }
-function createIcon(role){
-  return L.divIcon({html:`<div style='font-size:26px;font-weight:bold;color:${role==="driver"?"#2f6fff":"#2fbf6f"}'>${role==="driver"?"K":"P"}</div>`, className:"", iconSize:[30,30], iconAnchor:[15,15]});
+function createIcon(role, userId){
+  return L.divIcon({
+    html: `<div style='font-size:26px;font-weight:bold;color:${role==="driver"?"#2f6fff":"#2fbf6f"}'>${userId}</div>`,
+    className: "",
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
+  });
 }
 async function route(a,b){
   const url=`https://router.project-osrm.org/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`;
@@ -144,7 +149,7 @@ async function createUser(role){
   currentUserId = await getNextUserId(); // nowy numer: 1,2,3...
   currentRole = role;
 
-  const startMarker = L.marker([0,0], {icon:createIcon(role)}).addTo(map);
+ const startMarker = L.marker([0,0], {icon: createIcon(role, currentUserId)}).addTo(map);
   const endMarker = L.marker([0,0], {icon:createIcon(role)}).addTo(map);
   const line = L.polyline([], { color: role==="driver"?"blue":"green", weight:5 }).addTo(map);
   usersMarkers[currentUserId] = {startMarker,endMarker,line,role};
