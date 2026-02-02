@@ -58,7 +58,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 6.0.8</h1>
+									<h1 style="margin:5px 10px;">Crossway – 6.0.6</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -250,27 +250,15 @@ async function drawUserRoute(userId){
   if(!user) return;
   const start = user.startMarker.getLatLng();
   const end = user.endMarker.getLatLng();
+const coords = await route(
+  [start.lat, start.lng],
+  [end.lat, end.lng]
+);
 
-  // 🚨 zabezpieczenie przed brakiem trasy
-  if (!start || !end || (end.lat === 0 && end.lng === 0)) {
-    user.line.setLatLngs([]);
-    return;
-  }
+if (!coords) return; // 👈 brak trasy → nic nie rysujemy
+user.line.setLatLngs(coords);
 
-  const coords = await route([start.lat, start.lng], [end.lat, end.lng]);
-  if (!coords) {
-    user.line.setLatLngs([]);
-    return;
-  }
-
-  user.line.setLatLngs(coords);
-
-  // Każdy widzi zawsze swoją trasę
-  if (userId === currentUserId) {
-    if (!map.hasLayer(user.line)) user.line.addTo(map);
-  }
-};
-
+}
 
 /* ================= SAVE BUTTONS ================= */
 const saveDriverDestinationBtn = document.getElementById("saveDriverDestinationBtn");
@@ -448,15 +436,14 @@ function showCurrentDriver() {
   if (!driver) return;
 
   const path = driver.line.getLatLngs();
+overlapLine.setLatLngs(
+  path.slice(match.fromIndex, match.toIndex + 1)
+);
 
-  // 🔴 wyświetlamy tylko wspólną trasę na wierzchu
-  overlapLine.setLatLngs(path.slice(match.fromIndex, match.toIndex + 1));
-  overlapLine.bringToFront();
+// 🔴 zawsze na wierzchu
+overlapLine.bringToFront();
 
-  // Pełną trasę kierowcy dodajemy tymczasowo tylko do mapy pasażera
-  if (!map.hasLayer(driver.line)) driver.line.addTo(map);
 }
-
 
 
 
@@ -499,41 +486,27 @@ db.ref("session/users").on("value", async snap => {
 
   for (let uid in allUsers) {
     const data = allUsers[uid];
-    let user = usersMarkers[uid];
 
-    // jeśli użytkownik już istnieje
-    if (user) {
-      // zawsze aktualizujemy własne markery i trasę
-      if (uid === currentUserId) {
-        if (data.currentLocation)
-          user.startMarker.setLatLng([data.currentLocation.latitude, data.currentLocation.longitude]);
-        if (data.destination)
-          user.endMarker.setLatLng([data.destination.latitude, data.destination.longitude]);
-        if (data.currentLocation && data.destination)
-          await drawUserRoute(uid);
-      } else {
-        // dla innych użytkowników:
-        if (currentRole === "passenger") {
-          // pokaż tylko dopasowanych kierowców
-          const passenger = usersMarkers[currentUserId];
-          const match = passenger.matchingDrivers?.find(m => m.driverId === uid);
-          if (match) {
-            if (data.currentLocation)
-              user.startMarker.setLatLng([data.currentLocation.latitude, data.currentLocation.longitude]);
-            if (data.destination)
-              user.endMarker.setLatLng([data.destination.latitude, data.destination.longitude]);
-            await drawUserRoute(uid); // linia pełnej trasy kierowcy
-          } else {
-            // ukrywamy linie i markery innych kierowców
-            user.line.setLatLngs([]);
-          }
-        }
-        // kierowca nic nie widzi u innych
-        if (currentRole === "driver") {
-          user.line.setLatLngs([]);
-        }
+    // jeśli użytkownik już istnieje w usersMarkers, aktualizujemy markery i trasę
+    if (usersMarkers[uid]) {
+      const user = usersMarkers[uid];
+
+      // aktualizacja startu
+      if (data.currentLocation) {
+        user.startMarker.setLatLng([data.currentLocation.latitude, data.currentLocation.longitude]);
       }
-      continue;
+
+      // aktualizacja celu
+      if (data.destination) {
+        user.endMarker.setLatLng([data.destination.latitude, data.destination.longitude]);
+      }
+
+      // aktualizacja linii
+      if (data.currentLocation && data.destination) {
+        await drawUserRoute(uid);
+      }
+
+      continue; // idziemy do następnego uid
     }
 
     // jeśli użytkownik jeszcze nie istnieje → tworzymy
@@ -542,6 +515,7 @@ db.ref("session/users").on("value", async snap => {
 
     const startLat = data.currentLocation?.latitude || 0;
     const startLng = data.currentLocation?.longitude || 0;
+
     const endLat = data.destination?.latitude || startLat;
     const endLng = data.destination?.longitude || startLng;
 
@@ -549,13 +523,10 @@ db.ref("session/users").on("value", async snap => {
     const endMarker = L.marker([endLat, endLng], { icon: createIcon(uid, color) }).addTo(map);
     const line = L.polyline([], { color, weight: 5 });
 
-    // dodanie do mapy zależnie od roli i dopasowania
-    if (currentRole === "driver" && uid === currentUserId) {
-      line.addTo(map); // kierowca widzi tylko swoją trasę
-    }
-    if (currentRole === "passenger" && uid === currentUserId) {
-      line.addTo(map); // pasażer widzi swoją trasę
-    }
+if (currentRole === "driver") {
+  line.addTo(map);
+}
+
 
     usersMarkers[uid] = { startMarker, endMarker, line, role, color };
 
@@ -565,13 +536,12 @@ db.ref("session/users").on("value", async snap => {
     }
   }
 
-  // pasażer sprawdza dopasowania i pokazuje wspólną trasę
+  // jeśli jesteśmy pasażerem → sprawdzamy dopasowania
   if (currentRole === "passenger" && currentUserId) {
     await findMatchingDrivers(currentUserId);
     showCurrentDriver();
   }
 });
-
 
 
 </script>
