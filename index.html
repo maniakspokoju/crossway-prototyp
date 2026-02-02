@@ -58,7 +58,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 6.0.6</h1>
+									<h1 style="margin:5px 10px;">Crossway – 6.0.9</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -481,69 +481,44 @@ document.getElementById("passengerBtn").onclick = ()=>{document.body.style.backg
 
 /* ================= SYNC USERS ================= */
 /* ================= SYNC USERS – pełna synchronizacja ================= */
-db.ref("session/users").on("value", async snap => {
+db.ref("session/users").on("value", snap => {
   const allUsers = snap.val() || {};
 
   for (let uid in allUsers) {
     const data = allUsers[uid];
 
-    // jeśli użytkownik już istnieje w usersMarkers, aktualizujemy markery i trasę
-    if (usersMarkers[uid]) {
-      const user = usersMarkers[uid];
-
-      // aktualizacja startu
-      if (data.currentLocation) {
-        user.startMarker.setLatLng([data.currentLocation.latitude, data.currentLocation.longitude]);
-      }
-
-      // aktualizacja celu
-      if (data.destination) {
-        user.endMarker.setLatLng([data.destination.latitude, data.destination.longitude]);
-      }
-
-      // aktualizacja linii
-      if (data.currentLocation && data.destination) {
-        await drawUserRoute(uid);
-      }
-
-      continue; // idziemy do następnego uid
+    // jeśli użytkownik NIE jest jeszcze w pamięci → tylko zapamiętujemy dane
+    if (!usersMarkers[uid]) {
+      usersMarkers[uid] = {
+        role: data.role,
+        color: data.color,
+        startLatLng: data.currentLocation
+          ? [data.currentLocation.latitude, data.currentLocation.longitude]
+          : null,
+        endLatLng: data.destination
+          ? [data.destination.latitude, data.destination.longitude]
+          : null,
+        lineCoords: []
+      };
+      continue;
     }
 
-    // jeśli użytkownik jeszcze nie istnieje → tworzymy
-    const role = data.role;
-    const color = data.color || (role === "driver" ? randomColor() : "green");
-
-    const startLat = data.currentLocation?.latitude || 0;
-    const startLng = data.currentLocation?.longitude || 0;
-
-    const endLat = data.destination?.latitude || startLat;
-    const endLng = data.destination?.longitude || startLng;
-
-    const startMarker = L.marker([startLat, startLng], { icon: createIcon(uid, color) }).addTo(map);
-    const endMarker = L.marker([endLat, endLng], { icon: createIcon(uid, color) }).addTo(map);
-    const line = L.polyline([], { color, weight: 5 });
-
-if (currentRole === "driver") {
-  line.addTo(map);
-}
-
-
-    usersMarkers[uid] = { startMarker, endMarker, line, role, color };
-
-    // rysowanie trasy jeśli są dane start + cel
-    if (data.currentLocation && data.destination) {
-      await drawUserRoute(uid);
+    // aktualizacja danych (BEZ rysowania)
+    if (data.currentLocation) {
+      usersMarkers[uid].startLatLng = [
+        data.currentLocation.latitude,
+        data.currentLocation.longitude
+      ];
     }
-  }
 
-  // jeśli jesteśmy pasażerem → sprawdzamy dopasowania
-  if (currentRole === "passenger" && currentUserId) {
-    await findMatchingDrivers(currentUserId);
-    showCurrentDriver();
+    if (data.destination) {
+      usersMarkers[uid].endLatLng = [
+        data.destination.latitude,
+        data.destination.longitude
+      ];
+    }
   }
 });
-
-
 </script>
 
 </body>
