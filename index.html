@@ -1,5 +1,3 @@
-za długie wspólne trasy 20.20 8:20
-
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -58,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 6.0.2</h1>
+									<h1 style="margin:5px 10px;">Crossway – 6.0.3</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -415,9 +413,13 @@ function showCurrentDriver() {
   if (!driver) return;
 
   const path = driver.line.getLatLngs();
-  overlapLine.setLatLngs(
-    path.slice(match.fromIndex, match.toIndex + 1)
-  );
+overlapLine.setLatLngs(
+  path.slice(match.fromIndex, match.toIndex + 1)
+);
+
+// 🔴 zawsze na wierzchu
+overlapLine.bringToFront();
+
 }
 
 
@@ -425,23 +427,26 @@ function showCurrentDriver() {
 // Guziki do przełączania między kierowcami
 document.getElementById("nextDriverBtn").onclick = () => {
   const passenger = usersMarkers[currentUserId];
-  if (!passenger) return;
+  if (!passenger || passenger.matchingDrivers.length === 0) return;
 
-  if (passenger.currentDriverIndex < passenger.matchingDrivers.length - 1) {
-    passenger.currentDriverIndex++;
-    showCurrentDriver();
-  }
+  passenger.currentDriverIndex =
+    (passenger.currentDriverIndex + 1) % passenger.matchingDrivers.length;
+
+  showCurrentDriver();
 };
+
 
 document.getElementById("prevDriverBtn").onclick = () => {
   const passenger = usersMarkers[currentUserId];
-  if (!passenger) return;
+  if (!passenger || passenger.matchingDrivers.length === 0) return;
 
-  if (passenger.currentDriverIndex > 0) {
-    passenger.currentDriverIndex--;
-    showCurrentDriver();
-  }
+  passenger.currentDriverIndex =
+    (passenger.currentDriverIndex - 1 + passenger.matchingDrivers.length) %
+    passenger.matchingDrivers.length;
+
+  showCurrentDriver();
 };
+
 
 
 
