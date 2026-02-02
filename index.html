@@ -1,3 +1,5 @@
+za długie wspólne trasy 20.20 8:20
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -56,7 +58,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.9.9</h1>
+									<h1 style="margin:5px 10px;">Crossway – 6.0.1</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -363,34 +365,31 @@ async function findMatchingDrivers(passengerId) {
     );
     if (startIdx === -1) continue;
 
-    // 2️⃣ szukamy DRUGIEGO punktu wspólnego dalej
-let lastCommonIdx = startIdx;
+// 2️⃣ szukamy OSTATNIEGO przecięcia tras (pierwsze od końca)
+let endIdx = -1;
 const passengerPath = passenger.line.getLatLngs();
 
-for (let i = startIdx + 1; i < path.length; i++) {
+for (let i = path.length - 1; i > startIdx; i--) {
   const p = path[i];
-
   const idxOnPassenger = findClosestIndex(
     [p.lat, p.lng],
     passengerPath
   );
 
-  if (idxOnPassenger === -1) {
-    break; // ❗ pierwszy rozjazd → koniec wspólnej trasy
+  if (idxOnPassenger !== -1) {
+    endIdx = i;
+    break; // PIERWSZE od tyłu = OSTATNIE logicznie
   }
-
-  lastCommonIdx = i;
 }
 
-// musi być co najmniej 2 punkty wspólne
-if (lastCommonIdx === startIdx) continue;
+// jeśli brak drugiego przecięcia → NIE Tryb A
+if (endIdx === -1) continue;
 
-
-    passenger.matchingDrivers.push({
-      driverId: uid,
-      fromIndex: startIdx,
-      toIndex: lastCommonIdx
-    });
+passenger.matchingDrivers.push({
+  driverId: uid,
+  fromIndex: startIdx,
+  toIndex: endIdx
+});
   }
 
   console.log("Matching drivers (MODE A):", passenger.matchingDrivers);
