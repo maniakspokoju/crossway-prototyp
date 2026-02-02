@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.9.7</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.9.8</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -340,54 +340,63 @@ db.ref("session/mode").on("value", snap=>{
 //const TOLERANCE_METERS = 150; // zwiększona tolerancja, aby łatwiej dopasować trasę
 
 async function findMatchingDrivers(passengerId) {
-  if (!usersMarkers[passengerId]) return;
-
-  matchingDrivers = [];
-  currentDriverIndex = 0;
-
   const passenger = usersMarkers[passengerId];
+  if (!passenger) return;
+
+  passenger.matchingDrivers = [];
+  passenger.currentDriverIndex = 0;
+
   const pStart = passenger.startMarker.getLatLng();
-  const pEnd = passenger.endMarker.getLatLng();
-  console.log("Passenger start:", pStart, "end:", pEnd);
+  console.log("Passenger start:", pStart);
 
-  // Upewniamy się, że wszystkie trasy kierowców są w pełni wygenerowane
-  const driverPromises = Object.values(usersMarkers)
-    .filter(u => u.role === "driver")
-    .map(u => drawUserRoute(u));
-
-  await Promise.all(driverPromises);
-
-  // iterujemy po wszystkich kierowcach
   for (let uid in usersMarkers) {
     const driver = usersMarkers[uid];
-    if(driver.role !== "driver") continue;
+    if (driver.role !== "driver") continue;
 
     const path = driver.line.getLatLngs();
-    if(!path || path.length === 0) continue;
+    if (!path || path.length === 0) continue;
 
-    // szukamy punktu startu pasażera w trasie kierowcy
-    const startIdx = findClosestIndex([pStart.lat, pStart.lng], path);
-    if(startIdx === -1) continue;
+    // 1️⃣ start pasażera na trasie kierowcy
+    const startIdx = findClosestIndex(
+      [pStart.lat, pStart.lng],
+      path
+    );
+    if (startIdx === -1) continue;
 
-    // szukamy punktu końcowego pasażera w trasie kierowcy
-    let endIdx = findClosestIndex([pEnd.lat, pEnd.lng], path);
-    if(endIdx === -1 || endIdx < startIdx) endIdx = path.length - 1;
+    // 2️⃣ szukamy DRUGIEGO punktu wspólnego dalej
+    let lastCommonIdx = -1;
 
-    matchingDrivers.push({ driverId: uid, fromIndex: startIdx, toIndex: endIdx });
+    for (let i = startIdx + 1; i < path.length; i++) {
+      const p = path[i];
+      const idxOnPassenger = findClosestIndex(
+        [p.lat, p.lng],
+        passenger.line.getLatLngs()
+      );
+
+      if (idxOnPassenger !== -1) {
+        lastCommonIdx = i;
+      }
+    }
+
+    // jeśli nie ma drugiego punktu → NIE tryb A
+    if (lastCommonIdx === -1) continue;
+
+    passenger.matchingDrivers.push({
+      driverId: uid,
+      fromIndex: startIdx,
+      toIndex: lastCommonIdx
+    });
   }
 
-  if (matchingDrivers.length > 0) {
+  console.log("Matching drivers (MODE A):", passenger.matchingDrivers);
+
+  if (passenger.matchingDrivers.length > 0) {
     document.getElementById("driverBrowseControls").style.display = "flex";
-    showCurrentDriver();
   } else {
     overlapLine.setLatLngs([]);
     document.getElementById("driverBrowseControls").style.display = "none";
   }
-
-  console.log("Matching drivers:", matchingDrivers);
 }
-
-
 
 
 
@@ -395,33 +404,42 @@ async function findMatchingDrivers(passengerId) {
 function showCurrentDriver() {
   overlapLine.setLatLngs([]);
 
-  if (matchingDrivers.length === 0) return;
+  const passenger = usersMarkers[currentUserId];
+  if (!passenger || passenger.matchingDrivers.length === 0) return;
 
-  const match = matchingDrivers[currentDriverIndex];
+  const match = passenger.matchingDrivers[passenger.currentDriverIndex];
   const driver = usersMarkers[match.driverId];
   if (!driver) return;
 
   const path = driver.line.getLatLngs();
-  overlapLine.setLatLngs(path.slice(match.fromIndex, match.toIndex + 1));
+  overlapLine.setLatLngs(
+    path.slice(match.fromIndex, match.toIndex + 1)
+  );
 }
+
 
 
 // Guziki do przełączania między kierowcami
 document.getElementById("nextDriverBtn").onclick = () => {
-  if (matchingDrivers.length === 0) return;
-  if (currentDriverIndex < matchingDrivers.length - 1) {
-    currentDriverIndex++;
+  const passenger = usersMarkers[currentUserId];
+  if (!passenger) return;
+
+  if (passenger.currentDriverIndex < passenger.matchingDrivers.length - 1) {
+    passenger.currentDriverIndex++;
     showCurrentDriver();
   }
 };
 
 document.getElementById("prevDriverBtn").onclick = () => {
-  if (matchingDrivers.length === 0) return;
-  if (currentDriverIndex > 0) {
-    currentDriverIndex--;
+  const passenger = usersMarkers[currentUserId];
+  if (!passenger) return;
+
+  if (passenger.currentDriverIndex > 0) {
+    passenger.currentDriverIndex--;
     showCurrentDriver();
   }
 };
+
 
 
 
