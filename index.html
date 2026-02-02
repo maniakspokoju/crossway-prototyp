@@ -56,7 +56,7 @@ body {
 
 <body>
 
-									<h1 style="margin:5px 10px;">Crossway – 5.9.8</h1>
+									<h1 style="margin:5px 10px;">Crossway – 5.9.9</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -364,22 +364,27 @@ async function findMatchingDrivers(passengerId) {
     if (startIdx === -1) continue;
 
     // 2️⃣ szukamy DRUGIEGO punktu wspólnego dalej
-    let lastCommonIdx = -1;
+let lastCommonIdx = startIdx;
+const passengerPath = passenger.line.getLatLngs();
 
-    for (let i = startIdx + 1; i < path.length; i++) {
-      const p = path[i];
-      const idxOnPassenger = findClosestIndex(
-        [p.lat, p.lng],
-        passenger.line.getLatLngs()
-      );
+for (let i = startIdx + 1; i < path.length; i++) {
+  const p = path[i];
 
-      if (idxOnPassenger !== -1) {
-        lastCommonIdx = i;
-      }
-    }
+  const idxOnPassenger = findClosestIndex(
+    [p.lat, p.lng],
+    passengerPath
+  );
 
-    // jeśli nie ma drugiego punktu → NIE tryb A
-    if (lastCommonIdx === -1) continue;
+  if (idxOnPassenger === -1) {
+    break; // ❗ pierwszy rozjazd → koniec wspólnej trasy
+  }
+
+  lastCommonIdx = i;
+}
+
+// musi być co najmniej 2 punkty wspólne
+if (lastCommonIdx === startIdx) continue;
+
 
     passenger.matchingDrivers.push({
       driverId: uid,
