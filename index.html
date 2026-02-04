@@ -57,8 +57,14 @@ body {
 </head>
 
 <body>
+<div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
+  																	<h1 style="margin:0;">Crossway – 6.0.7</h1>
+  <button id="resetBtn"
+    style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
+    Reset
+  </button>
+</div>
 
-									<h1 style="margin:5px 10px;">Crossway – 6.0.6</h1>
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
@@ -95,7 +101,7 @@ body {
 <script>
 /* ================= FIREBASE ================= */
 firebase.initializeApp({
-  apiKey: "",
+  apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
   databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
 });
 const db = firebase.database();
@@ -543,6 +549,47 @@ if (currentRole === "driver") {
   }
 });
 
+/* ================= RESET ================= */
+document.getElementById("resetBtn").onclick = async () => {
+  if (!confirm("Czy na pewno zresetować całą sesję?")) return;
+
+  // 1. Firebase – czyścimy WSZYSTKO
+  await db.ref("session").set(null);
+
+  // 2. Mapa – usuwamy markery i linie
+  for (let uid in usersMarkers) {
+    const u = usersMarkers[uid];
+    map.removeLayer(u.startMarker);
+    map.removeLayer(u.endMarker);
+    map.removeLayer(u.line);
+  }
+  overlapLine.setLatLngs([]);
+
+  // 3. Reset lokalnego stanu
+  usersMarkers = {};
+  currentUserId = null;
+  currentRole = null;
+  selectedPoint = null;
+  editingDestination = false;
+  editingStart = false;
+  currentMode = "A";
+  acceptLocked = false;
+
+  // 4. UI
+  document.body.style.backgroundColor = "";
+  document.getElementById("driverDestinationDiv").style.display = "none";
+  document.getElementById("passengerControls").style.display = "none";
+  document.getElementById("driverBrowseControls").style.display = "none";
+
+  document.getElementById("driverBtn").disabled = false;
+  document.getElementById("driverBtn").style.opacity = "1";
+  document.getElementById("passengerBtn").disabled = false;
+  document.getElementById("passengerBtn").style.opacity = "1";
+
+  document.getElementById("modeBtn").innerText = "Tryb A";
+
+  alert("Sesja została zresetowana.");
+};
 
 </script>
 
