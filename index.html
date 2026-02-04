@@ -58,7 +58,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.0.7</h1>
+  																	<h1 style="margin:0;">Crossway – 6.0.8</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -131,7 +131,8 @@ async function getNextUserId() {
 /* ================= MAPA ================= */
 const map = L.map("map").setView([52.1, 19.9], 12);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-const overlapLine = L.polyline([], { color: "red", weight: 7 }).addTo(map);
+const overlapLine = L.polyline([], { color: "red", weight: 7 });
+
 
 /* ================= UTILS ================= */
 function distanceMeters(a,b){
@@ -233,6 +234,11 @@ const line = L.polyline([], {
 
   if(role==="driver") document.getElementById("driverDestinationDiv").style.display="block";
   if(role==="passenger") document.getElementById("passengerControls").style.display="block";
+
+// 🔴 czerwona wspólna trasa tylko dla pasażera
+if (role === "passenger") {
+  overlapLine.addTo(map);
+}
 
   // blokada przycisków ról po wyborze
   document.getElementById("driverBtn").disabled=true;
@@ -492,6 +498,11 @@ db.ref("session/users").on("value", async snap => {
 
   for (let uid in allUsers) {
     const data = allUsers[uid];
+
+  // 🚗 KIEROWCA widzi TYLKO siebie
+  if (currentRole === "driver" && String(uid) !== String(currentUserId)) {
+    continue;
+  }
 
     // jeśli użytkownik już istnieje w usersMarkers, aktualizujemy markery i trasę
     if (usersMarkers[uid]) {
