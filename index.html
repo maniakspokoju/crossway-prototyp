@@ -58,7 +58,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.0.8</h1>
+  																	<h1 style="margin:0;">Crossway – 6.0.9</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -496,8 +496,12 @@ document.getElementById("passengerBtn").onclick = ()=>{document.body.style.backg
 db.ref("session/users").on("value", async snap => {
   const allUsers = snap.val() || {};
 
-  for (let uid in allUsers) {
-    const data = allUsers[uid];
+for (let uid in allUsers) {
+
+  // 🔒 tylko mój użytkownik
+  if (uid != currentUserId) continue;
+
+  const data = allUsers[uid];
 
   // 🚗 KIEROWCA widzi TYLKO siebie
   if (currentRole === "driver" && String(uid) !== String(currentUserId)) {
