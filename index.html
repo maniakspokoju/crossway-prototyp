@@ -58,7 +58,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.1.6</h1>
+  																	<h1 style="margin:0;">Crossway – 6.1.7</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -262,7 +262,16 @@ const coords = await route(
   [end.lat, end.lng]
 );
 
-if (!coords) return; // 👈 brak trasy → nic nie rysujemy
+//if (!coords) return; // 👈 brak trasy → nic nie rysujemy
+if (!coords) {
+  // fallback: prosta linia start → koniec
+  const user = usersMarkers[userId];
+  const start = user.startMarker.getLatLng();
+  const end = user.endMarker.getLatLng();
+  user.line.setLatLngs([[start.lat, start.lng], [end.lat, end.lng]]);
+  return;
+}
+
 user.line.setLatLngs(coords);
 
 }
