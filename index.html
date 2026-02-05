@@ -368,8 +368,6 @@ db.ref("session/mode").on("value", snap=>{
 
 
 /* ================= OVERLAP ================= */
-//const TOLERANCE_METERS = 150; // zwiększona tolerancja, aby łatwiej dopasować trasę
-
 async function findMatchingDrivers(passengerId) {
   const passenger = usersMarkers[passengerId];
   if (!passenger) return;
@@ -384,56 +382,32 @@ async function findMatchingDrivers(passengerId) {
     const driver = usersMarkers[uid];
     if (driver.role !== "driver") continue;
 
-    const path = driver.line.getLatLngs();
+    const path = driver.line?.getLatLngs();
     if (!path || path.length === 0) continue;
 
-    // 1️⃣ start pasażera na trasie kierowcy
+    // ✅ JEDYNY WARUNEK:
+    // start pasażera leży na trasie kierowcy
     const startIdx = findClosestIndex(
       [pStart.lat, pStart.lng],
       path
     );
+
     if (startIdx === -1) continue;
 
-// 2️⃣ szukamy OSTATNIEGO przecięcia tras (pierwsze od końca)
-let endIdx = -1;
-const passengerPath = passenger.line.getLatLngs();
-
-// Wklejamy sprawdzenie:
-if (!passengerPath || passengerPath.length === 0) continue;
-
-for (let i = path.length - 1; i > startIdx; i--) {
-  const p = path[i];
-  const idxOnPassenger = findClosestIndex(
-    [p.lat, p.lng],
-    passengerPath
-  );
-
-  if (idxOnPassenger !== -1) {
-    endIdx = i;
-    break; // PIERWSZE od tyłu = OSTATNIE logicznie
-  }
-}
-
-// jeśli brak drugiego przecięcia → NIE Tryb A
-if (endIdx === -1) continue;
-
-passenger.matchingDrivers.push({
-  driverId: uid,
-  fromIndex: startIdx,
-  toIndex: endIdx
-});
+    passenger.matchingDrivers.push({
+      driverId: uid,
+      startIndex: startIdx
+    });
   }
 
-  console.log("Matching drivers (MODE A):", passenger.matchingDrivers);
+  console.log("Matching drivers:", passenger.matchingDrivers);
 
   if (passenger.matchingDrivers.length > 0) {
     document.getElementById("driverBrowseControls").style.display = "flex";
   } else {
-    overlapLine.setLatLngs([]);
     document.getElementById("driverBrowseControls").style.display = "none";
   }
 }
-
 
 
 // Wyświetla trasę aktualnego dopasowanego kierowcy
@@ -496,12 +470,8 @@ document.getElementById("passengerBtn").onclick = ()=>{document.body.style.backg
 db.ref("session/users").on("value", async snap => {
   const allUsers = snap.val() || {};
 
-for (let uid in allUsers) {
-
-  // 🔒 tylko mój użytkownik
-  if (uid != currentUserId) continue;
-
-  const data = allUsers[uid];
+  for (let uid in allUsers) {
+    const data = allUsers[uid];
 
   // 🚗 KIEROWCA widzi TYLKO siebie
   if (currentRole === "driver" && String(uid) !== String(currentUserId)) {
