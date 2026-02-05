@@ -58,7 +58,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.0.7</h1>
+  																	<h1 style="margin:0;">Crossway – 6.1.3</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -110,6 +110,7 @@ const db = firebase.database();
 let currentUserId = null;
 let currentRole = null;
 let usersMarkers = {};
+let driverLineOnMap = null; // linia kierowcy aktualnie wyświetlana dla pasażera
 let selectedPoint = null;
 let editingDestination = false;
 let editingStart = false;
@@ -432,24 +433,41 @@ passenger.matchingDrivers.push({
 
 // Wyświetla trasę aktualnego dopasowanego kierowcy
 function showCurrentDriver() {
-  overlapLine.setLatLngs([]);
-
   const passenger = usersMarkers[currentUserId];
-  if (!passenger || passenger.matchingDrivers.length === 0) return;
+  if (!passenger || passenger.matchingDrivers.length === 0) {
+    overlapLine.setLatLngs([]);
+    if (driverLineOnMap) {
+      map.removeLayer(driverLineOnMap);
+      driverLineOnMap = null;
+    }
+    return;
+  }
 
   const match = passenger.matchingDrivers[passenger.currentDriverIndex];
   const driver = usersMarkers[match.driverId];
   if (!driver) return;
 
-  const path = driver.line.getLatLngs();
-overlapLine.setLatLngs(
-  path.slice(match.fromIndex, match.toIndex + 1)
-);
+  const driverPath = driver.line.getLatLngs();
+  const overlapPath = driverPath.slice(match.fromIndex, match.toIndex + 1);
 
-// 🔴 zawsze na wierzchu
-overlapLine.bringToFront();
+  // 1️⃣ zawsze aktualizujemy trasę wspólną
+  overlapLine.setLatLngs(overlapPath);
+  overlapLine.bringToFront();
 
+  // 2️⃣ usuń starą linię kierowcy, jeśli była
+  if (driverLineOnMap) {
+    map.removeLayer(driverLineOnMap);
+    driverLineOnMap = null;
+  }
+
+  // 3️⃣ dodaj nową linię kierowcy
+  driverLineOnMap = L.polyline(driverPath, {
+    color: driver.color,
+    weight: 5,
+    opacity: 0.7
+  }).addTo(map);
 }
+
 
 
 
@@ -458,16 +476,26 @@ document.getElementById("nextDriverBtn").onclick = () => {
   const passenger = usersMarkers[currentUserId];
   if (!passenger || passenger.matchingDrivers.length === 0) return;
 
+  // usuń starą linię kierowcy z mapy
+  if (driverLineOnMap) {
+    map.removeLayer(driverLineOnMap);
+    driverLineOnMap = null;
+  }
+
   passenger.currentDriverIndex =
     (passenger.currentDriverIndex + 1) % passenger.matchingDrivers.length;
 
   showCurrentDriver();
 };
 
-
 document.getElementById("prevDriverBtn").onclick = () => {
   const passenger = usersMarkers[currentUserId];
   if (!passenger || passenger.matchingDrivers.length === 0) return;
+
+  if (driverLineOnMap) {
+    map.removeLayer(driverLineOnMap);
+    driverLineOnMap = null;
+  }
 
   passenger.currentDriverIndex =
     (passenger.currentDriverIndex - 1 + passenger.matchingDrivers.length) %
@@ -481,9 +509,26 @@ document.getElementById("prevDriverBtn").onclick = () => {
 
 
 
+
 /* ================= EVENTY ROLE ================= */
-document.getElementById("driverBtn").onclick = ()=>{document.body.style.backgroundColor="#2f6fff"; createUser("driver");};
-document.getElementById("passengerBtn").onclick = ()=>{document.body.style.backgroundColor="#2fbf6f"; createUser("passenger");};
+document.getElementById("driverBtn").onclick = () => {
+  if (driverLineOnMap) { 
+    map.removeLayer(driverLineOnMap); 
+    driverLineOnMap = null; 
+  }
+  document.body.style.backgroundColor = "#2f6fff"; 
+  createUser("driver");
+};
+
+document.getElementById("passengerBtn").onclick = () => {
+  if (driverLineOnMap) { 
+    map.removeLayer(driverLineOnMap); 
+    driverLineOnMap = null; 
+  }
+  document.body.style.backgroundColor = "#2fbf6f"; 
+  createUser("passenger");
+};
+
 
 /* ================= SYNC USERS ================= */
 /* ================= SYNC USERS – pełna synchronizacja ================= */
@@ -564,6 +609,12 @@ document.getElementById("resetBtn").onclick = async () => {
     map.removeLayer(u.line);
   }
   overlapLine.setLatLngs([]);
+
+if (driverLineOnMap) {
+  map.removeLayer(driverLineOnMap);
+  driverLineOnMap = null;
+}
+
 
   // 3. Reset lokalnego stanu
   usersMarkers = {};
