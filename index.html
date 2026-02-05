@@ -58,7 +58,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.1.5</h1>
+  																	<h1 style="margin:0;">Crossway – 6.1.6</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -573,14 +573,15 @@ db.ref("session/users").on("value", async snap => {
 
     const startMarker = L.marker([startLat, startLng], { icon: createIcon(uid, color) }).addTo(map);
     const endMarker = L.marker([endLat, endLng], { icon: createIcon(uid, color) }).addTo(map);
-    const line = L.polyline([], { color, weight: 5 });
+const line = L.polyline([], { color, weight: 5 });
 
-// Kierowca widzi tylko linie innych kierowców, którzy zostali dodani po nim
-if (currentRole === "driver" && uid > currentUserId && data.role === "driver") {
+// Kierowca widzi tylko swoją linię
+if (currentRole === "driver" && uid === currentUserId) {
   line.addTo(map);
 }
 
-// Pasażer widzi swoją trasę i nic nie dodaje tutaj (jej linia już jest w usersMarkers[currentUserId].line)
+// Pasażer nie zmienia logiki (widzi wszystko zgodnie z wcześniejszymi zmianami)
+
 
 
 
