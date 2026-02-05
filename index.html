@@ -58,7 +58,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.1.2</h1>
+  																	<h1 style="margin:0;">Crossway – 6.0.7</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -106,12 +106,6 @@ firebase.initializeApp({
 });
 const db = firebase.database();
 
-const routesData = {
-  drivers: {},    // uid → [[lat,lng], ...]
-  passengers: {}  // uid → [[lat,lng], ...]
-};
-
-
 /* ================= GLOBAL ================= */
 let currentUserId = null;
 let currentRole = null;
@@ -137,8 +131,7 @@ async function getNextUserId() {
 /* ================= MAPA ================= */
 const map = L.map("map").setView([52.1, 19.9], 12);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-const overlapLine = L.polyline([], { color: "red", weight: 7 });
-
+const overlapLine = L.polyline([], { color: "red", weight: 7 }).addTo(map);
 
 /* ================= UTILS ================= */
 function distanceMeters(a,b){
@@ -241,11 +234,6 @@ const line = L.polyline([], {
   if(role==="driver") document.getElementById("driverDestinationDiv").style.display="block";
   if(role==="passenger") document.getElementById("passengerControls").style.display="block";
 
-// 🔴 czerwona wspólna trasa tylko dla pasażera
-if (role === "passenger") {
-  overlapLine.addTo(map);
-}
-
   // blokada przycisków ról po wyborze
   document.getElementById("driverBtn").disabled=true;
   document.getElementById("driverBtn").style.opacity="0.4";
@@ -263,35 +251,20 @@ map.on("click", function(e){
 });
 
 /* ================= DRAW ROUTE ================= */
-async function drawUserRoute(userId) {
+async function drawUserRoute(userId){
   const user = usersMarkers[userId];
-  if (!user) return;
-
+  if(!user) return;
   const start = user.startMarker.getLatLng();
   const end = user.endMarker.getLatLng();
+const coords = await route(
+  [start.lat, start.lng],
+  [end.lat, end.lng]
+);
 
-  const coords = await route(
-    [start.lat, start.lng],
-    [end.lat, end.lng]
-  );
-  if (!coords) return;
+if (!coords) return; // 👈 brak trasy → nic nie rysujemy
+user.line.setLatLngs(coords);
 
-  // 🔑 zapis danych
-  if (user.role === "driver") {
-    routesData.drivers[userId] = coords;
-  } else {
-    routesData.passengers[userId] = coords;
-  }
-
-  // 👁 rysujemy TYLKO to co użytkownik ma prawo widzieć
-  if (
-    user.role === currentRole &&
-    userId === currentUserId
-  ) {
-    user.line.setLatLngs(coords);
-  }
 }
-
 
 /* ================= SAVE BUTTONS ================= */
 const saveDriverDestinationBtn = document.getElementById("saveDriverDestinationBtn");
@@ -389,6 +362,8 @@ db.ref("session/mode").on("value", snap=>{
 
 
 /* ================= OVERLAP ================= */
+//const TOLERANCE_METERS = 150; // zwiększona tolerancja, aby łatwiej dopasować trasę
+
 async function findMatchingDrivers(passengerId) {
   const passenger = usersMarkers[passengerId];
   if (!passenger) return;
@@ -397,31 +372,61 @@ async function findMatchingDrivers(passengerId) {
   passenger.currentDriverIndex = 0;
 
   const pStart = passenger.startMarker.getLatLng();
-  const passengerPath = routesData.passengers[passengerId];
-  if (!passengerPath) return;
+  console.log("Passenger start:", pStart);
 
-  for (let driverId in routesData.drivers) {
-    const driverPath = routesData.drivers[driverId];
-    if (!driverPath) continue;
+  for (let uid in usersMarkers) {
+    const driver = usersMarkers[uid];
+    if (driver.role !== "driver") continue;
+
+    const path = driver.line.getLatLngs();
+    if (!path || path.length === 0) continue;
 
     // 1️⃣ start pasażera na trasie kierowcy
     const startIdx = findClosestIndex(
       [pStart.lat, pStart.lng],
-      driverPath
+      path
     );
     if (startIdx === -1) continue;
 
-    passenger.matchingDrivers.push({
-      driverId,
-      fromIndex: startIdx,
-      toIndex: driverPath.length - 1
-    });
-  }
+// 2️⃣ szukamy OSTATNIEGO przecięcia tras (pierwsze od końca)
+let endIdx = -1;
+const passengerPath = passenger.line.getLatLngs();
 
-  document.getElementById("driverBrowseControls").style.display =
-    passenger.matchingDrivers.length ? "flex" : "none";
+// Wklejamy sprawdzenie:
+if (!passengerPath || passengerPath.length === 0) continue;
+
+for (let i = path.length - 1; i > startIdx; i--) {
+  const p = path[i];
+  const idxOnPassenger = findClosestIndex(
+    [p.lat, p.lng],
+    passengerPath
+  );
+
+  if (idxOnPassenger !== -1) {
+    endIdx = i;
+    break; // PIERWSZE od tyłu = OSTATNIE logicznie
+  }
 }
 
+// jeśli brak drugiego przecięcia → NIE Tryb A
+if (endIdx === -1) continue;
+
+passenger.matchingDrivers.push({
+  driverId: uid,
+  fromIndex: startIdx,
+  toIndex: endIdx
+});
+  }
+
+  console.log("Matching drivers (MODE A):", passenger.matchingDrivers);
+
+  if (passenger.matchingDrivers.length > 0) {
+    document.getElementById("driverBrowseControls").style.display = "flex";
+  } else {
+    overlapLine.setLatLngs([]);
+    document.getElementById("driverBrowseControls").style.display = "none";
+  }
+}
 
 
 
@@ -433,15 +438,18 @@ function showCurrentDriver() {
   if (!passenger || passenger.matchingDrivers.length === 0) return;
 
   const match = passenger.matchingDrivers[passenger.currentDriverIndex];
-  const driverPath = routesData.drivers[match.driverId];
-  if (!driverPath) return;
+  const driver = usersMarkers[match.driverId];
+  if (!driver) return;
 
-  overlapLine.setLatLngs(
-    driverPath.slice(match.fromIndex, match.toIndex + 1)
-  );
-  overlapLine.bringToFront();
+  const path = driver.line.getLatLngs();
+overlapLine.setLatLngs(
+  path.slice(match.fromIndex, match.toIndex + 1)
+);
+
+// 🔴 zawsze na wierzchu
+overlapLine.bringToFront();
+
 }
-
 
 
 
@@ -484,11 +492,6 @@ db.ref("session/users").on("value", async snap => {
 
   for (let uid in allUsers) {
     const data = allUsers[uid];
-
-  // 🚗 KIEROWCA widzi TYLKO siebie
-  if (currentRole === "driver" && String(uid) !== String(currentUserId)) {
-    continue;
-  }
 
     // jeśli użytkownik już istnieje w usersMarkers, aktualizujemy markery i trasę
     if (usersMarkers[uid]) {
@@ -589,7 +592,6 @@ document.getElementById("resetBtn").onclick = async () => {
 };
 
 </script>
-
 
 </body>
 </html>
