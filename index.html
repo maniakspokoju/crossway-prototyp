@@ -58,7 +58,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.0.9</h1>
+  																	<h1 style="margin:0;">Crossway – 6.1.1</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -117,6 +117,8 @@ let currentMode = "A";
 let acceptLocked = false;
 // let matchingDrivers = [];
 // let currentDriverIndex = 0;
+let driversCache = {};
+
 
 
 // ===== Funkcja pobierająca kolejny numer użytkownika =====
@@ -368,6 +370,8 @@ db.ref("session/mode").on("value", snap=>{
 
 
 /* ================= OVERLAP ================= */
+//const TOLERANCE_METERS = 150; // zwiększona tolerancja, aby łatwiej dopasować trasę
+
 async function findMatchingDrivers(passengerId) {
   const passenger = usersMarkers[passengerId];
   if (!passenger) return;
@@ -382,56 +386,124 @@ async function findMatchingDrivers(passengerId) {
     const driver = usersMarkers[uid];
     if (driver.role !== "driver") continue;
 
-    const path = driver.line?.getLatLngs();
+    const path = driverPath;
     if (!path || path.length === 0) continue;
 
-    // ✅ JEDYNY WARUNEK:
-    // start pasażera leży na trasie kierowcy
+    // 1️⃣ start pasażera na trasie kierowcy
     const startIdx = findClosestIndex(
       [pStart.lat, pStart.lng],
       path
     );
-
     if (startIdx === -1) continue;
 
-    passenger.matchingDrivers.push({
-      driverId: uid,
-      startIndex: startIdx
-    });
+// 2️⃣ szukamy OSTATNIEGO przecięcia tras (pierwsze od końca)
+let endIdx = -1;
+const passengerPath = passenger.line.getLatLngs();
+
+// Wklejamy sprawdzenie:
+if (!passengerPath || passengerPath.length === 0) continue;
+
+for (let i = path.length - 1; i > startIdx; i--) {
+  const p = path[i];
+  const idxOnPassenger = findClosestIndex(
+    [p.lat, p.lng],
+    passengerPath
+  );
+
+  if (idxOnPassenger !== -1) {
+    endIdx = i;
+    break; // PIERWSZE od tyłu = OSTATNIE logicznie
+  }
+}
+
+// jeśli brak drugiego przecięcia → NIE Tryb A
+if (endIdx === -1) continue;
+
+passenger.matchingDrivers.push({
+  driverId: uid,
+  fromIndex: startIdx,
+  toIndex: endIdx
+});
   }
 
-  console.log("Matching drivers:", passenger.matchingDrivers);
+  console.log("Matching drivers (MODE A):", passenger.matchingDrivers);
 
   if (passenger.matchingDrivers.length > 0) {
     document.getElementById("driverBrowseControls").style.display = "flex";
   } else {
+    overlapLine.setLatLngs([]);
     document.getElementById("driverBrowseControls").style.display = "none";
   }
 }
 
 
+
 // Wyświetla trasę aktualnego dopasowanego kierowcy
-function showCurrentDriver() {
+async function showCurrentDriver() {
+  // 1️⃣ czyścimy poprzedniego kierowcę z mapy
   overlapLine.setLatLngs([]);
 
+  if (window.tempDriver) {
+    map.removeLayer(window.tempDriver.start);
+    map.removeLayer(window.tempDriver.end);
+    map.removeLayer(window.tempDriver.line);
+    window.tempDriver = null;
+  }
+
+  // 2️⃣ walidacja pasażera
   const passenger = usersMarkers[currentUserId];
   if (!passenger || passenger.matchingDrivers.length === 0) return;
 
   const match = passenger.matchingDrivers[passenger.currentDriverIndex];
-  const driver = usersMarkers[match.driverId];
-  if (!driver) return;
+  if (!match) return;
 
-  const path = driver.line.getLatLngs();
-overlapLine.setLatLngs(
-  path.slice(match.fromIndex, match.toIndex + 1)
-);
+  // 3️⃣ dane kierowcy (z cache, NIE z usersMarkers)
+  const d = driversCache[match.driverId];
+  if (!d) return;
 
-// 🔴 zawsze na wierzchu
-overlapLine.bringToFront();
+  // 4️⃣ budujemy trasę kierowcy lokalnie
+  const driverPath = await buildDriverRoute(match.driverId);
+  if (!driverPath || driverPath.length === 0) return;
 
+  // 5️⃣ markery kierowcy (tymczasowe, tylko dla pasażera)
+  const startMarker = L.marker(d.start, {
+    icon: createIcon(match.driverId, d.color)
+  }).addTo(map);
+
+  const endMarker = L.marker(d.end, {
+    icon: createIcon(match.driverId, d.color)
+  }).addTo(map);
+
+  // 6️⃣ pełna trasa kierowcy
+  const driverLine = L.polyline(driverPath, {
+    color: d.color,
+    weight: 5
+  }).addTo(map);
+
+  // 7️⃣ wspólny fragment (czerwony overlap)
+  overlapLine.setLatLngs(
+    driverPath.slice(match.fromIndex, match.toIndex + 1)
+  );
+  overlapLine.bringToFront();
+
+  // 8️⃣ zapamiętujemy, żeby móc usunąć przy przełączaniu
+  window.tempDriver = {
+    start: startMarker,
+    end: endMarker,
+    line: driverLine
+  };
 }
 
 
+async function buildDriverRoute(driverId) {
+  const d = driversCache[driverId];
+  if (!d) return null;
+
+  if (!d.line) {
+    d.line = await route(d.start, d.end);
+  }
+  return d.line;
+}
 
 // Guziki do przełączania między kierowcami
 document.getElementById("nextDriverBtn").onclick = () => {
@@ -465,18 +537,32 @@ document.getElementById("prevDriverBtn").onclick = () => {
 document.getElementById("driverBtn").onclick = ()=>{document.body.style.backgroundColor="#2f6fff"; createUser("driver");};
 document.getElementById("passengerBtn").onclick = ()=>{document.body.style.backgroundColor="#2fbf6f"; createUser("passenger");};
 
-/* ================= SYNC USERS ================= */
 /* ================= SYNC USERS – pełna synchronizacja ================= */
 db.ref("session/users").on("value", async snap => {
   const allUsers = snap.val() || {};
 
   for (let uid in allUsers) {
-    const data = allUsers[uid];
+const data = allUsers[uid];
 
-  // 🚗 KIEROWCA widzi TYLKO siebie
-  if (currentRole === "driver" && String(uid) !== String(currentUserId)) {
-    continue;
+// 🚗 PASAŻER: zbieramy TYLKO kierowców do cache
+if (currentRole === "passenger" && data.role === "driver") {
+  if (data.currentLocation && data.destination) {
+    driversCache[uid] = {
+      start: [
+        data.currentLocation.latitude,
+        data.currentLocation.longitude
+      ],
+      end: [
+        data.destination.latitude,
+        data.destination.longitude
+      ],
+      color: data.color,
+      line: null // wyliczymy trasę lokalnie
+    };
   }
+  continue; // ❗ NIE rysujemy nic na mapie
+}
+
 
     // jeśli użytkownik już istnieje w usersMarkers, aktualizujemy markery i trasę
     if (usersMarkers[uid]) {
@@ -542,8 +628,10 @@ document.getElementById("resetBtn").onclick = async () => {
   await db.ref("session").set(null);
 
   // 2. Mapa – usuwamy markery i linie
-  for (let uid in usersMarkers) {
-    const u = usersMarkers[uid];
+for (let uid in driversCache) {
+  const driverPath = await buildDriverRoute(uid);
+  if (!driverPath) continue;
+
     map.removeLayer(u.startMarker);
     map.removeLayer(u.endMarker);
     map.removeLayer(u.line);
