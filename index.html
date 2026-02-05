@@ -1,3 +1,8 @@
+/* 6.1.9 pasażer widzi swoją trasę, jednego kierowcy i wspólną trasę / kierowca widzi swoją trasę / widać wszystkie markery. */
+
+/*zamiana dla działania strony gdy OSMR nie odpowiada - zamiast > linii 265 dodaliśmy kod pod spodem  */
+
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -56,7 +61,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.1.8</h1>
+  																	<h1 style="margin:0;">Crossway – 6.1.9</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -128,17 +133,18 @@ async function getNextUserId() {
 }
 
 
-// ===== BLOKADA GUZIKÓW W TRAKCIE EDYCJI =====
-function togglePassengerButtons(disable) {
+/* ================= BLOKADA GUZIKÓW W TRAKCIE EDYCJI ================= */
+function togglePassengerButtons(disable, excludeIds = []) {
   const buttons = [
     "modeBtn",
     "acceptBtn",
     "saveDestinationBtn",
-   // "saveStartBtn",
+    "saveStartBtn",
     "nextDriverBtn",
     "prevDriverBtn"
   ];
   buttons.forEach(id => {
+    if (excludeIds.includes(id)) return; // pomijamy wybrane guziki
     const btn = document.getElementById(id);
     if (btn) {
       btn.disabled = disable;
@@ -311,13 +317,12 @@ saveDriverDestinationBtn.onclick = async ()=>{
 // ================= SAVE DESTINATION =================
 const saveDestinationBtn = document.getElementById("saveDestinationBtn");
 saveDestinationBtn.onclick = async () => {
-if (!editingDestination) {
-  editingDestination = true;
-  saveDestinationBtn.innerText = "Zapisz cel";
-  togglePassengerButtons(true); // 🔒 blokujemy pozostałe przyciski
-  return;
-}
-
+  if (!editingDestination) {
+    editingDestination = true;
+    saveDestinationBtn.innerText = "Zapisz cel";
+    togglePassengerButtons(true, ["saveDestinationBtn"]); // blokujemy resztę
+    return;
+  }
 
   if (selectedPoint) {
     usersMarkers[currentUserId].endMarker.setLatLng(selectedPoint);
@@ -334,23 +339,22 @@ if (!editingDestination) {
     }
   }
 
-editingDestination = false;
-saveDestinationBtn.innerText = "Edytuj cel";
-togglePassengerButtons(false); // 🔓 odblokowujemy przyciski
-selectedPoint = null;
-
+  editingDestination = false;
+  saveDestinationBtn.innerText = "Edytuj cel";
+  togglePassengerButtons(false); // odblokowujemy wszystkie
+  selectedPoint = null;
 };
 
 // ================= SAVE START =================
 const saveStartBtn = document.getElementById("saveStartBtn");
 saveStartBtn.onclick = async () => {
-if (!editingStart) {
-  editingStart = true;
-  saveStartBtn.innerText = "Zapisz start";
-  togglePassengerButtons(true); // 🔒 blokada
-  return;
-}
-
+  if (!editingStart) {
+    editingStart = true;
+    saveStartBtn.innerText = "Zapisz start";
+    // 🔒 wszystkie pozostałe guziki poza tym, którym klikamy
+    togglePassengerButtons(true, ["saveStartBtn"]);
+    return;
+  }
 
   if (selectedPoint) {
     usersMarkers[currentUserId].startMarker.setLatLng(selectedPoint);
@@ -367,10 +371,10 @@ if (!editingStart) {
     }
   }
 
-editingStart = false;
-saveStartBtn.innerText = "Edytuj start";
-togglePassengerButtons(false); // 🔓 odblokowanie
-selectedPoint = null;
+  editingStart = false;
+  saveStartBtn.innerText = "Edytuj start";
+  togglePassengerButtons(false); // 🔓 odblokowanie wszystkich
+  selectedPoint = null;
 };
 
 
