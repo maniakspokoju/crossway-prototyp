@@ -58,7 +58,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.1.7</h1>
+  																	<h1 style="margin:0;">Crossway – 6.1.8</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -133,6 +133,27 @@ async function getNextUserId() {
 const map = L.map("map").setView([52.1, 19.9], 12);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 const overlapLine = L.polyline([], { color: "red", weight: 7 }).addTo(map);
+
+
+/* ================= Blokady w trakcie edycji ================= */
+function togglePassengerButtons(disable) {
+  const buttons = [
+    "modeBtn",
+    "acceptBtn",
+    "saveDestinationBtn",
+    "saveStartBtn",
+    "nextDriverBtn",
+    "prevDriverBtn"
+  ];
+  buttons.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.disabled = disable;
+      btn.style.opacity = disable ? "0.4" : "1";
+    }
+  });
+}
+
 
 /* ================= UTILS ================= */
 function distanceMeters(a,b){
@@ -292,12 +313,13 @@ saveDriverDestinationBtn.onclick = async ()=>{
 
 // ================= SAVE DESTINATION =================
 const saveDestinationBtn = document.getElementById("saveDestinationBtn");
-saveDestinationBtn.onclick = async () => {
-  if (!editingDestination) {
-    editingDestination = true;
-    saveDestinationBtn.innerText = "Zapisz cel";
-    return;
-  }
+if (!editingDestination) {
+  editingDestination = true;
+  saveDestinationBtn.innerText = "Zapisz cel";
+  togglePassengerButtons(true); // 🔒 blokujemy pozostałe przyciski
+  return;
+}
+
 
   if (selectedPoint) {
     usersMarkers[currentUserId].endMarker.setLatLng(selectedPoint);
@@ -314,19 +336,23 @@ saveDestinationBtn.onclick = async () => {
     }
   }
 
-  editingDestination = false;
-  saveDestinationBtn.innerText = "Edytuj cel";
-  selectedPoint = null;
+editingDestination = false;
+saveDestinationBtn.innerText = "Edytuj cel";
+togglePassengerButtons(false); // 🔓 odblokowujemy przyciski
+selectedPoint = null;
+
 };
 
 // ================= SAVE START =================
 const saveStartBtn = document.getElementById("saveStartBtn");
 saveStartBtn.onclick = async () => {
-  if (!editingStart) {
-    editingStart = true;
-    saveStartBtn.innerText = "Zapisz start";
-    return;
-  }
+if (!editingStart) {
+  editingStart = true;
+  saveStartBtn.innerText = "Zapisz start";
+  togglePassengerButtons(true); // 🔒 blokada
+  return;
+}
+
 
   if (selectedPoint) {
     usersMarkers[currentUserId].startMarker.setLatLng(selectedPoint);
@@ -343,9 +369,10 @@ saveStartBtn.onclick = async () => {
     }
   }
 
-  editingStart = false;
-  saveStartBtn.innerText = "Edytuj start";
-  selectedPoint = null;
+editingStart = false;
+saveStartBtn.innerText = "Edytuj start";
+togglePassengerButtons(false); // 🔓 odblokowanie
+selectedPoint = null;
 };
 
 
