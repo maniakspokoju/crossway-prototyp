@@ -1,4 +1,5 @@
-6.0.6
+// 6.1.7 pasażer widzi swoją trasę, jednego kierowcy i wspólną trasę / kierowca widzi swoją trasę / widać wszystkie markery. 
+//zamiana dla działania strony gdy OSMR nie odpowiada - zamiast > linii 265 dodaliśmy kod pod spodem  
 
 <!DOCTYPE html>
 <html lang="pl">
@@ -129,13 +130,8 @@ async function getNextUserId() {
   return snapshot.snapshot.val(); // to będzie numer kolejnego użytkownika
 }
 
-/* ================= MAPA ================= */
-const map = L.map("map").setView([52.1, 19.9], 12);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-const overlapLine = L.polyline([], { color: "red", weight: 7 }).addTo(map);
 
-
-/* ================= Blokady w trakcie edycji ================= */
+// ===== BLOKADA GUZIKÓW W TRAKCIE EDYCJI =====
 function togglePassengerButtons(disable) {
   const buttons = [
     "modeBtn",
@@ -154,6 +150,10 @@ function togglePassengerButtons(disable) {
   });
 }
 
+/* ================= MAPA ================= */
+const map = L.map("map").setView([52.1, 19.9], 12);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+const overlapLine = L.polyline([], { color: "red", weight: 7 }).addTo(map);
 
 /* ================= UTILS ================= */
 function distanceMeters(a,b){
@@ -313,6 +313,7 @@ saveDriverDestinationBtn.onclick = async ()=>{
 
 // ================= SAVE DESTINATION =================
 const saveDestinationBtn = document.getElementById("saveDestinationBtn");
+saveDestinationBtn.onclick = async () => {
 if (!editingDestination) {
   editingDestination = true;
   saveDestinationBtn.innerText = "Zapisz cel";
