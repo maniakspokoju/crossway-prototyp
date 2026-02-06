@@ -61,7 +61,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.1.9</h1>
+  																	<h1 style="margin:0;">Crossway – 6.2.0</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -121,7 +121,7 @@ let currentMode = "A";
 let acceptLocked = false;
 // let matchingDrivers = [];
 // let currentDriverIndex = 0;
-
+let acceptedMatch = null;
 
 // ===== Funkcja pobierająca kolejny numer użytkownika =====
 async function getNextUserId() {
@@ -152,6 +152,135 @@ function togglePassengerButtons(disable, excludeIds = []) {
     }
   });
 }
+
+
+/* ============= AKCEPTACJA TRASY ===================== */
+acceptBtn.onclick = async () => {
+  if (currentRole !== "passenger") return;
+
+  const passenger = usersMarkers[currentUserId];
+  if (!passenger || passenger.matchingDrivers.length === 0) return;
+
+  const match = passenger.matchingDrivers[passenger.currentDriverIndex];
+
+  acceptedMatch = {
+    passengerId: currentUserId,
+    driverId: match.driverId,
+    fromIndex: match.fromIndex,
+    toIndex: match.toIndex
+  };
+
+  // zapis do bazy – ważne dla synchronizacji kierowcy
+  await db.ref(`session/acceptedMatch`).set(acceptedMatch);
+
+  enterAcceptedViewPassenger();
+};
+
+function enterAcceptedViewPassenger() {
+  // chowamy wszystko poza mapą, tytułem i resetem
+  hidePassengerControls();
+
+  renderAcceptedRoutesForPassenger();
+}
+
+function hidePassengerControls() {
+const ids = [
+  // edycja
+  "saveStartBtn",
+  "saveDestinationBtn",
+
+  // przegląd kierowców
+  "nextDriverBtn",
+  "prevDriverBtn",
+
+  // akceptacja
+  "acceptBtn",
+
+  // tryb
+  "modeBtn",
+
+  // inne kontrolki pasażera (jeśli istnieją w HTML)
+  "driverBrowseControls",
+  "passengerControls"
+];
+
+
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+}
+
+function renderAcceptedRoutesForPassenger() {
+  const { passengerId, driverId, fromIndex, toIndex } = acceptedMatch;
+
+  const passenger = usersMarkers[passengerId];
+  const driver = usersMarkers[driverId];
+
+  // czyścimy mapę
+  clearAllRoutes();
+
+  // trasa pasażera
+  passenger.line.addTo(map);
+
+  // trasa kierowcy
+  driverLineOnMap = L.polyline(driver.line.getLatLngs(), {
+    color: driver.color,
+    weight: 5,
+    opacity: 0.7
+  }).addTo(map);
+
+  // trasa wspólna
+  const overlap = driver.line
+    .getLatLngs()
+    .slice(fromIndex, toIndex + 1);
+
+  overlapLine.setLatLngs(overlap).addTo(map);
+}
+
+function enterAcceptedViewDriver() {
+  hideDriverControls();
+  renderAcceptedRoutesForDriver();
+}
+
+function hideDriverControls() {
+  const ids = [
+    "modeBtn",
+    "otherButtonsIfAny"
+  ];
+
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+}
+
+function renderAcceptedRoutesForDriver() {
+  const { passengerId, fromIndex, toIndex } = acceptedMatch;
+
+  const passenger = usersMarkers[passengerId];
+  const driver = usersMarkers[currentUserId];
+
+  clearAllRoutes();
+
+  // trasa kierowcy
+  driver.line.addTo(map);
+
+  // trasa pasażera
+  L.polyline(passenger.line.getLatLngs(), {
+    color: passenger.color,
+    weight: 5,
+    opacity: 0.7
+  }).addTo(map);
+
+  // trasa wspólna
+  const overlap = driver.line
+    .getLatLngs()
+    .slice(fromIndex, toIndex + 1);
+
+  overlapLine.setLatLngs(overlap).addTo(map);
+}
+
 
 /* ================= MAPA ================= */
 const map = L.map("map").setView([52.1, 19.9], 12);
