@@ -1,4 +1,4 @@
-/* 6.1.7 pasażer widzi swoją trasę, jednego kierowcy i wspólną trasę / kierowca widzi swoją trasę / widać wszystkie markery. */
+/* 6.1.9 pasażer widzi swoją trasę, jednego kierowcy i wspólną trasę / kierowca widzi swoją trasę / widać wszystkie markery. */
 
 /*zamiana dla działania strony gdy OSMR nie odpowiada - zamiast > linii 265 dodaliśmy kod pod spodem  */
 
@@ -61,7 +61,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.2.3</h1>
+  																	<h1 style="margin:0;">Crossway – 6.2.4</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -122,7 +122,6 @@ let acceptLocked = false;
 // let matchingDrivers = [];
 // let currentDriverIndex = 0;
 let acceptLocked = false;
-
 
 
 // ===== Funkcja pobierająca kolejny numer użytkownika =====
@@ -401,7 +400,8 @@ db.ref("session/mode").on("value", snap=>{
   checkOverlaps(); // teraz już istnieje, nie powoduje błędu
 });
 
-// ================= ACCEPT ROUTE =================
+
+/* ================= ACCEPT ROUTE ================= */
 const acceptBtn = document.getElementById("acceptBtn");
 
 acceptBtn.onclick = async () => {
