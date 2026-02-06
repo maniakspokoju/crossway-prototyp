@@ -61,7 +61,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.1.9</h1>
+  																	<h1 style="margin:0;">Crossway – 6.2.3</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -121,6 +121,8 @@ let currentMode = "A";
 let acceptLocked = false;
 // let matchingDrivers = [];
 // let currentDriverIndex = 0;
+let acceptLocked = false;
+
 
 
 // ===== Funkcja pobierająca kolejny numer użytkownika =====
@@ -398,6 +400,37 @@ db.ref("session/mode").on("value", snap=>{
   modeBtn.innerText = "Tryb " + currentMode;
   checkOverlaps(); // teraz już istnieje, nie powoduje błędu
 });
+
+// ================= ACCEPT ROUTE =================
+const acceptBtn = document.getElementById("acceptBtn");
+
+acceptBtn.onclick = async () => {
+  if (acceptLocked) return;
+  if (currentRole !== "passenger") return;
+
+  const passenger = usersMarkers[currentUserId];
+  if (!passenger) return;
+
+  if (!passenger.matchingDrivers || passenger.matchingDrivers.length === 0) {
+    alert("Brak dostępnych kierowców do akceptacji.");
+    return;
+  }
+
+  const match = passenger.matchingDrivers[passenger.currentDriverIndex];
+  if (!match || !match.driverId) return;
+
+  await db.ref(`session/accepted/${currentUserId}`).set({
+    driverId: match.driverId,
+    timestamp: firebase.database.ServerValue.TIMESTAMP
+  });
+
+  console.log(
+    "Pasażer",
+    currentUserId,
+    "zaakceptował kierowcę",
+    match.driverId
+  );
+};
 
 
 /* ================= OVERLAP ================= */
