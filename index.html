@@ -1,121 +1,84 @@
+/* 6.1.9 pasażer widzi swoją trasę, jednego kierowcy i wspólną trasę / kierowca widzi swoją trasę / widać wszystkie markery. */
+
+/*zamiana dla działania strony gdy OSMR nie odpowiada - zamiast > linii 265 dodaliśmy kod pod spodem  */
+
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
-<title>Crossway</title>
+<title>Crossway Multi-user</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <style>
 body {
     font-family: sans-serif;
-    margin: 10px;
+    margin: 0;
     transition: background-color 0.3s ease;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
-
-/* MAPA */
-#map {
-    height: 1000px;
-    margin-top: 20px;
-}
-
-/* SEKCJE FORMULARZY */
-#driverDestinationDiv,
-#passengerDestinationDiv {
-    display: none;
-    margin-top: 20px;
-}
-
-/* INPUTY */
-input {
-    width: 120px;
-    height: 50px;
-    font-size: 22px;
-    margin-right: 10px;
-    text-align: center;
-}
-
-/* ===== DUŻE PRZYCISKI (4–6x) ===== */
-button {
-    font-size: 26px;
-    padding: 20px 30px;
-    margin: 10px 5px;
-    border-radius: 14px;
-    border: none;
-    cursor: pointer;
-}
-
-/* LEPSZA CZYTELNOŚĆ RÓL */
-#driverBtn {
-    background-color: #2f6fff;
-    color: white;
-}
-
-#passengerBtn {
-    background-color: #2fbf6f;
-    color: white;
-}
-
-/* EFEKT DOTYKOWY */
-button:active {
-    transform: scale(0.97);
-}
-
-/* ===== MOBILE LAYOUT ===== */
-html, body {
-  height: 100%;
-  margin: 0;
-}
-
+/* ROLE BAR */
 #roleBar {
   display: flex;
   width: 100%;
 }
-
 #roleBar button {
   width: 50%;
   height: 80px;
   font-size: 28px;
   border-radius: 0;
+  cursor: pointer;
 }
+#driverBtn { background-color: #2f6fff; color: white; }
+#passengerBtn { background-color: #2fbf6f; color: white; }
 
-/* MAPA ZAWSZE NA DOLE */
-#map {
-  height: calc(100vh - 80px);
+/* PANEL UŻYTKOWNIKA */
+#driverDestinationDiv, #passengerControls {
+  display: none;
+  padding: 10px;
 }
-
-#driverDestinationDiv button {
-  width: 95%;
-}
-
-#passengerControls button {
+#driverDestinationDiv button, #passengerControls button {
   font-size: 24px;
-  padding: 15px;
+  padding: 12px;
+  margin: 5px 0;
   border-radius: 12px;
   cursor: pointer;
 }
-
-#passengerControls button:active {
+#driverDestinationDiv button:active, #passengerControls button:active {
   transform: scale(0.97);
 }
 
-
+/* MAPA */
+#map {
+  flex: 1;
+}
 </style>
 </head>
 
 <body>
-																<h1>Crossway – fundament 4.9</h1>
+<div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
+  																	<h1 style="margin:0;">Crossway – 6.2.9</h1>
+  <button id="resetBtn"
+    style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
+    Reset
+  </button>
+</div>
+
 
 <div id="roleBar">
   <button id="driverBtn">Driver</button>
   <button id="passengerBtn">Passenger</button>
 </div>
 
-<p id="role"></p>
+<div id="driverDestinationDiv">
+  <button id="saveDriverDestinationBtn">Edytuj cel</button>
+</div>
 
-<!-- PANEL PASAŻERA -->
-<div id="passengerControls" style="display:none; margin-top:10px;">
+<div id="passengerControls">
   <div style="display:flex; gap:10px; margin-bottom:10px;">
     <button id="modeBtn" style="flex:5;">Tryb A</button>
     <button id="acceptBtn" style="flex:8; background:#ff5722; color:white;">Akceptuj trasę</button>
@@ -126,17 +89,11 @@ html, body {
   </div>
 </div>
 
-
-<div id="driverDestinationDiv">
-<button id="saveDriverDestinationBtn">Edytuj cel</button>
+<div id="driverBrowseControls" style="display:none; gap:10px; margin-top:10px;">
+  <button id="prevDriverBtn" style="flex:1;">Cofnij</button>
+  <button id="nextDriverBtn" style="flex:1;">Dalej</button>
 </div>
 
-
-
-<div id="savedLocations" style="margin-top:10px; font-weight:bold;">
-  <p id="driverSavedInfo" style="color:#2f6fff;"></p>
-  <p id="passengerSavedInfo" style="color:#2fbf6f;"></p>
-</div>
 
 <div id="map"></div>
 
@@ -145,468 +102,709 @@ html, body {
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-
-
-function showStartMarker(role, lat, lng) {
-  const latlng = [lat, lng];
-  if (role === "driver") {
-    driverStartMarker.setLatLng(latlng); // pokaż D
-  } 
-  if (role === "passenger") {
-    passengerStartMarker.setLatLng(latlng); // pokaż P
-  }
-}
-
-
-
 /* ================= FIREBASE ================= */
 firebase.initializeApp({
   apiKey: "AIzaSyBO8O-tNlduXs3VPr5UV8-A1MWesj1ptrc",
   databaseURL: "https://crossway-prototyp-default-rtdb.europe-west1.firebasedatabase.app/"
 });
 const db = firebase.database();
-db.ref("session").remove();
 
-let currentMode = "A"; // A = przecięcia, B = optymalny dystans
-let accepted = false;
-let acceptLocked = false; // 🔒 lokalna blokada guzika
-
-
-let currentRole = null; // "driver" | "passenger"
-
-// STANY EDYCJI
-let editingDriverDestination = false;
-let editingPassengerDestination = false;
-let editingPassengerStart = false;
-
-// Zmienna przechowująca wybrany punkt z mapy
+/* ================= GLOBAL ================= */
+let currentUserId = null;
+let currentRole = null;
+let usersMarkers = {};
+let driverLineOnMap = null; // linia kierowcy aktualnie wyświetlana dla pasażera
 let selectedPoint = null;
+let editingDestination = false;
+let editingStart = false;
+let currentMode = "A";
+let acceptLocked = false;
 
-function setBackgroundFromRoleButton(button) {
-  const color = getComputedStyle(button).backgroundColor;
-  document.body.style.backgroundColor = color;
+
+
+// ===== Funkcja pobierająca kolejny numer użytkownika =====
+async function getNextUserId() {
+  const userCountRef = db.ref("session/userCount");
+  const snapshot = await userCountRef.transaction(current => {
+    return (current || 0) + 1; // jeśli brak, ustaw 1, inaczej zwiększ
+  });
+  return snapshot.snapshot.val(); // to będzie numer kolejnego użytkownika
 }
 
 
+/* ================= BLOKADA GUZIKÓW W TRAKCIE EDYCJI ================= */
+function togglePassengerButtons(disable, excludeIds = []) {
+  const buttons = [
+    "modeBtn",
+    "acceptBtn",
+    "saveDestinationBtn",
+    "saveStartBtn",
+    "nextDriverBtn",
+    "prevDriverBtn"
+  ];
+  buttons.forEach(id => {
+    if (excludeIds.includes(id)) return; // pomijamy wybrane guziki
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.disabled = disable;
+      btn.style.opacity = disable ? "0.4" : "1";
+    }
+  });
+}
 
-/* ================= MAP ================= */
+/* ================= MAPA ================= */
 const map = L.map("map").setView([52.1, 19.9], 12);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-
-const driverLine = L.polyline([], { color: "blue", weight: 5 }).addTo(map);
-const passengerLine = L.polyline([], { color: "green", weight: 5 }).addTo(map);
 const overlapLine = L.polyline([], { color: "red", weight: 7 }).addTo(map);
 
-/* ================= MARKERY ================= */
-
-// Ikony liter K i P
-const iconK = L.divIcon({
-  html: "<div style='font-size:26px;font-weight:bold;color:#2f6fff'>K</div>",
-  className: "",
-  iconSize: [30, 30],
-  iconAnchor: [15, 15]
-});
-
-const iconP = L.divIcon({
-  html: "<div style='font-size:26px;font-weight:bold;color:#2fbf6f'>P</div>",
-  className: "",
-  iconSize: [30, 30],
-  iconAnchor: [15, 15]
-});
-
-// Markery
-const driverStartMarker = L.marker([0,0], { icon: iconK }).addTo(map);
-const passengerStartMarker = L.marker([0,0], { icon: iconP }).addTo(map);
-
-const driverEndMarker = L.marker([0,0]).addTo(map);
-const passengerEndMarker = L.marker([0,0]).addTo(map);
-
-
 /* ================= UTILS ================= */
-const TOLERANCE_METERS = 60;
-
-function distanceMeters(a, b) {
-  const R = 6371000;
-  const dLat = (b[0]-a[0]) * Math.PI/180;
-  const dLng = (b[1]-a[1]) * Math.PI/180;
-  const x = dLng * Math.cos((a[0]+b[0])/2 * Math.PI/180);
-  return Math.sqrt(dLat*dLat + x*x) * R;
+function distanceMeters(a,b){
+  const R=6371000,dLat=(b[0]-a[0])*Math.PI/180,dLng=(b[1]-a[1])*Math.PI/180,x=dLng*Math.cos((a[0]+b[0])/2*Math.PI/180);
+  return Math.sqrt(dLat*dLat+x*x)*R;
 }
+const TOLERANCE_METERS = 40; // większa tolerancja
 
-function findClosestIndex(point, path) {
+function findClosestIndex(point, path){
   let min = Infinity, idx = -1;
   path.forEach((p, i) => {
-    const d = distanceMeters(point, p);
-    if (d < min) { min = d; idx = i; }
+    let pLat, pLng;
+    if(Array.isArray(p)){
+      [pLat, pLng] = p;
+    } else {
+      pLat = p.lat; pLng = p.lng;
+    }
+    const d = distanceMeters(point, [pLat, pLng]);
+    if(d < min){ min = d; idx = i; }
   });
+  // dodatkowy log dla debugowania
+  // console.log("Closest distance:", min, "TOLERANCE_METERS:", TOLERANCE_METERS);
   return min <= TOLERANCE_METERS ? idx : -1;
 }
 
-// Obsługa kliknięcia na mapie
-map.on('click', function(e) {
-  // Jeśli żaden tryb edycji nie jest aktywny, nic nie rób
-  if (!editingDriverDestination && !editingPassengerDestination && !editingPassengerStart) return;
 
-  // Zapisujemy kliknięty punkt
-  selectedPoint = [e.latlng.lat, e.latlng.lng];
-
-  // Podgląd znacznika na mapie
-  if (editingDriverDestination) driverEndMarker.setLatLng(selectedPoint);
-  if (editingPassengerDestination) passengerEndMarker.setLatLng(selectedPoint);
-  if (editingPassengerStart) passengerStartMarker.setLatLng(selectedPoint);
-});
-
-
-function findBestExitIndex(driverPath, passengerDestination, startIdx) {
-  let bestIdx = startIdx;
-  let bestDistance = Infinity;
-
-  for (let i = startIdx; i < driverPath.length; i++) {
-    const d = distanceMeters(driverPath[i], passengerDestination);
-    if (d < bestDistance) {
-      bestDistance = d;
-      bestIdx = i;
-    }
-  }
-
-  return bestIdx;
+function createIcon(userId, color){
+  return L.divIcon({
+    html:`<div style="font-size:26px;font-weight:bold;color:${color}">${userId}</div>`,
+    className:"",
+    iconSize:[30,30],
+    iconAnchor:[15,15]
+  });
 }
 
-
-/* ================= OSRM ================= */
 async function route(a, b) {
   const url = `https://router.project-osrm.org/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`;
-  const r = await fetch(url).then(r=>r.json());
-  return r.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("OSRM response not ok");
+
+    const data = await res.json();
+    if (!data.routes || !data.routes[0]) throw new Error("No route");
+
+    return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+  } catch (err) {
+    console.warn("OSRM error:", err.message);
+    return null;
+  }
 }
 
-db.ref("session/accepted").on("value", snap => {
-  accepted = snap.val() === true;
-  if (accepted) lockFormsAfterAccept();
+
+function randomColor(){
+  return "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6,"0");
+}
+
+/* ================= CREATE USER ================= */
+async function createUser(role){
+  currentUserId = await getNextUserId(); // nowy numer: 1,2,3...
+  currentRole = role;
+
+  const userColor = role === "driver" ? randomColor() : "green";
+
+const startMarker = L.marker([0,0], {
+  icon: createIcon(currentUserId, userColor)
+}).addTo(map);
+
+const endMarker = L.marker([0,0], {
+  icon: createIcon(currentUserId, userColor)
+}).addTo(map);
+
+const line = L.polyline([], {
+  color: userColor,
+  weight: 5
+}).addTo(map);
+
+  usersMarkers[currentUserId] = {
+  startMarker,
+  endMarker,
+  line,
+  role,
+  color: userColor,
+  matchingDrivers: [],
+  currentDriverIndex: 0
+};
+
+
+
+  navigator.geolocation.getCurrentPosition(p=>{
+    const lat=p.coords.latitude, lng=p.coords.longitude;
+    startMarker.setLatLng([lat,lng]);
+    db.ref(`session/users/${currentUserId}`).set({
+  role,
+  color: userColor,
+  currentLocation:{ latitude:lat, longitude:lng }
 });
-
-
-
-
-
-/* ================= MAIN ================= */
-async function update() {
-  // czyścimy linie (bez ruszania mapy)
-  driverLine.setLatLngs([]);
-  passengerLine.setLatLngs([]);
-  overlapLine.setLatLngs([]);
-
-  const ds = (await db.ref("session/driver").once("value")).val();
-  const ps = (await db.ref("session/passenger").once("value")).val();
-
-  let dPath = null;
-  let pPath = null;
-
-  /* ================= TRASA KIEROWCY (ZAWSZE) ================= */
-  if (ds?.currentLocation && ds?.destination) {
-    dPath = await route(
-      [ds.currentLocation.latitude, ds.currentLocation.longitude],
-      [ds.destination.latitude, ds.destination.longitude]
-    );
-
-    driverLine.setLatLngs(dPath);
-
-    if (dPath.length) {
-      driverStartMarker.setLatLng(dPath[0]);
-      driverEndMarker.setLatLng(dPath.at(-1));
-    }
-  }
-
-  /* ================= TRASA PASAŻERA ================= */
-  if (
-    ps?.currentLocation &&
-    ps?.destination &&
-    (accepted || currentRole === "passenger")
-  ) {
-    pPath = await route(
-      [ps.currentLocation.latitude, ps.currentLocation.longitude],
-      [ps.destination.latitude, ps.destination.longitude]
-    );
-
-    passengerLine.setLatLngs(pPath);
-
-    if (pPath.length) {
-      passengerStartMarker.setLatLng(pPath[0]);
-      passengerEndMarker.setLatLng(pPath.at(-1));
-    }
-  }
-
-  /* ================= TRASA WSPÓLNA ================= */
-let overlapExists = false; // 🔹 flaga do guzika akceptacji
-
-if (dPath && pPath) {
-  const startPassenger = [ps.currentLocation.latitude, ps.currentLocation.longitude];
-  const startIdx = findClosestIndex(startPassenger, dPath);
-  if (startIdx !== -1) {
-    let endIdx = -1;
-
-    if (currentMode === "A") {
-      const hits = [];
-      dPath.forEach((dp, i) => pPath.forEach(pp => {
-        if (distanceMeters(dp, pp) <= TOLERANCE_METERS) hits.push(i);
-      }));
-      const valid = [...new Set(hits)].filter(i => i >= startIdx);
-      if (valid.length >= 2) endIdx = Math.max(...valid);
-    }
-
-    if (currentMode === "B") {
-      const passengerDest = [ps.destination.latitude, ps.destination.longitude];
-      endIdx = findBestExitIndex(dPath, passengerDest, startIdx);
-    }
-
-    if (endIdx !== -1) {
-      overlapLine.setLatLngs(dPath.slice(startIdx, endIdx + 1));
-      overlapExists = true; // 🔹 jest wspólna trasa
-    }
-  }
-}
-
-// 🔹 Aktywacja/dezaktywacja przycisku Akceptuj trasę
-if (!acceptLocked) {
-  acceptBtn.disabled = !overlapExists;
-  acceptBtn.style.opacity = overlapExists ? "1" : "0.4";
-}
-
-
-} // koniec funkcji update()
-
-
-db.ref("session").on("value", () => {
-  update();
-  updateRoleAvailability();
-});
-
-
-/* ================= ROLE ================= */
-function assign(role) {
-  const firstTimeChoosing = !currentRole; // pierwszy wybór
-
-  if (firstTimeChoosing) {
-    currentRole = role;
-
-    // Zapis roli w Firebase
-    db.ref("session/" + role).set({ role });
-  }
-
-  // Pobranie aktualnej lokalizacji
-  navigator.geolocation.getCurrentPosition(p => {
-    const lat = p.coords.latitude;
-    const lng = p.coords.longitude;
-
-    // Zapis w Firebase
-    db.ref(`session/${role}/currentLocation`).set({ latitude: lat, longitude: lng });
-
-    // 🔹 Ustawienie markera startowego od razu na mapie
-    if (role === "driver") driverStartMarker.setLatLng([lat, lng]);
-    if (role === "passenger") passengerStartMarker.setLatLng([lat, lng]);
   });
 
-  // UI
-  modeBtn.style.display = role === "passenger" ? "inline-block" : "none";
+  if(role==="driver") document.getElementById("driverDestinationDiv").style.display="block";
+  if(role==="passenger") document.getElementById("passengerControls").style.display="block";
 
-  if (role === "driver") driverDestinationDiv.style.display = "block";
-
-if (role === "passenger") {
-  document.getElementById("passengerControls").style.display = "block";
+  // blokada przycisków ról po wyborze
+  document.getElementById("driverBtn").disabled=true;
+  document.getElementById("driverBtn").style.opacity="0.4";
+  document.getElementById("passengerBtn").disabled=true;
+  document.getElementById("passengerBtn").style.opacity="0.4";
 }
 
+/* ================= MAP CLICK ================= */
+map.on("click", function(e){
+  if(!editingDestination && !editingStart) return;
+  selectedPoint=[e.latlng.lat,e.latlng.lng];
+  if(editingDestination) usersMarkers[currentUserId].endMarker.setLatLng(selectedPoint);
+  if(editingStart) usersMarkers[currentUserId].startMarker.setLatLng(selectedPoint);
+  drawUserRoute(currentUserId);
+});
 
-  // Odśwież dostępność guzika
-  updateRoleAvailability();
+/* ================= DRAW ROUTE ================= */
+async function drawUserRoute(userId){
+  const user = usersMarkers[userId];
+  if(!user) return;
+  const start = user.startMarker.getLatLng();
+  const end = user.endMarker.getLatLng();
+const coords = await route(
+  [start.lat, start.lng],
+  [end.lat, end.lng]
+);
+
+//if (!coords) return; // 👈 brak trasy → nic nie rysujemy
+if (!coords) {
+  // fallback: prosta linia start → koniec
+  const user = usersMarkers[userId];
+  const start = user.startMarker.getLatLng();
+  const end = user.endMarker.getLatLng();
+  user.line.setLatLngs([[start.lat, start.lng], [end.lat, end.lng]]);
+  return;
 }
 
+user.line.setLatLngs(coords);
 
-
-
-
-driverBtn.onclick = () => {
-  setBackgroundFromRoleButton(driverBtn);
-  assign("driver");
-};
-
-passengerBtn.onclick = () => {
-  setBackgroundFromRoleButton(passengerBtn);
-  assign("passenger");
-};
-
-
-/* ================= BLOKADA RÓL ================= */
-
-function updateRoleAvailability() {
-  db.ref("session").once("value").then(snapshot => {
-    const data = snapshot.val() || {};
-
-    // DRIVER
-    if ((data.driver && data.driver.role === "driver") || currentRole) {
-      driverBtn.disabled = true;
-      driverBtn.style.opacity = "0.4";
-      driverBtn.innerText = "Driver zajęty";
-    } else {
-      driverBtn.disabled = false;
-      driverBtn.style.opacity = "1";
-      driverBtn.innerText = "Driver";
-    }
-
-    // PASSENGER
-    if ((data.passenger && data.passenger.role === "passenger") || currentRole) {
-      passengerBtn.disabled = true;
-      passengerBtn.style.opacity = "0.4";
-      passengerBtn.innerText = "Passenger zajęty";
-    } else {
-      passengerBtn.disabled = false;
-      passengerBtn.style.opacity = "1";
-      passengerBtn.innerText = "Passenger";
-    }
-  });
 }
 
-
-
-
-// start pasażera
-// saveStartBtn.addEventListener("click", () => {
- // const latSuffix = startLat.value.trim();
- // const lngSuffix = startLng.value.trim();
-
- // if(latSuffix.length === 3 && lngSuffix.length === 3){
-  //  const lat = 52.1 + parseInt(latSuffix)/10000;
-  //  const lng = 19.9 + parseInt(lngSuffix)/10000;
-
- //   db.ref("session/passenger/currentLocation").set({ latitude: lat, longitude: lng })
- //     .then(() => console.log("Nowa lokalizacja startowa pasażera zapisana:", lat, lng))
- //     .catch(err => console.error(err));
-//  } else {
-//    alert("Wprowadź dokładnie 3 cyfry dla szerokości i długości!");
-//  }
-// });
-
-
-
-
-
-// Kierowca – cel
-saveDriverDestinationBtn.onclick = () => {
-  if (!editingDriverDestination) {
-    // Włącz tryb edycji
-    editingDriverDestination = true;
-    saveDriverDestinationBtn.innerText = "Zapisz cel";
-    return;
+/* ================= SAVE BUTTONS ================= */
+const saveDriverDestinationBtn = document.getElementById("saveDriverDestinationBtn");
+saveDriverDestinationBtn.onclick = async ()=>{
+  if(!editingDestination){editingDestination=true; saveDriverDestinationBtn.innerText="Zapisz cel"; return;}
+  if(selectedPoint){
+    usersMarkers[currentUserId].endMarker.setLatLng(selectedPoint);
+    db.ref(`session/users/${currentUserId}/destination`).set({latitude:selectedPoint[0],longitude:selectedPoint[1]});
+    drawUserRoute(currentUserId);
   }
-
-  // Tryb zapisu
-  if (selectedPoint) {
-    db.ref("session/driver/destination").set({
-      latitude: selectedPoint[0],
-      longitude: selectedPoint[1]
-    });
-  }
-
-  editingDriverDestination = false;
-  saveDriverDestinationBtn.innerText = "Edytuj cel";
-  selectedPoint = null;
+  editingDestination=false;
+  saveDriverDestinationBtn.innerText="Edytuj cel";
+  selectedPoint=null;
 };
 
-// Pasażer – cel
-saveDestinationBtn.onclick = () => {
-  if (!editingPassengerDestination) {
-    editingPassengerDestination = true;
+// ================= SAVE DESTINATION =================
+const saveDestinationBtn = document.getElementById("saveDestinationBtn");
+saveDestinationBtn.onclick = async () => {
+  if (!editingDestination) {
+    editingDestination = true;
     saveDestinationBtn.innerText = "Zapisz cel";
+    togglePassengerButtons(true, ["saveDestinationBtn"]); // blokujemy resztę
     return;
   }
 
   if (selectedPoint) {
-    db.ref("session/passenger/destination").set({
+    usersMarkers[currentUserId].endMarker.setLatLng(selectedPoint);
+    await db.ref(`session/users/${currentUserId}/destination`).set({
       latitude: selectedPoint[0],
       longitude: selectedPoint[1]
     });
+
+    await drawUserRoute(currentUserId);
+
+    if (currentRole === "passenger") {
+      await findMatchingDrivers(currentUserId);
+      showCurrentDriver();
+    }
   }
 
-  editingPassengerDestination = false;
+  editingDestination = false;
   saveDestinationBtn.innerText = "Edytuj cel";
+  togglePassengerButtons(false); // odblokowujemy wszystkie
   selectedPoint = null;
 };
 
-// Pasażer – start
-saveStartBtn.onclick = () => {
-  if (!editingPassengerStart) {
-    editingPassengerStart = true;
+// ================= SAVE START =================
+const saveStartBtn = document.getElementById("saveStartBtn");
+saveStartBtn.onclick = async () => {
+  if (!editingStart) {
+    editingStart = true;
     saveStartBtn.innerText = "Zapisz start";
+    // 🔒 wszystkie pozostałe guziki poza tym, którym klikamy
+    togglePassengerButtons(true, ["saveStartBtn"]);
     return;
   }
 
   if (selectedPoint) {
-    db.ref("session/passenger/currentLocation").set({
+    usersMarkers[currentUserId].startMarker.setLatLng(selectedPoint);
+    await db.ref(`session/users/${currentUserId}/currentLocation`).set({
       latitude: selectedPoint[0],
       longitude: selectedPoint[1]
     });
+
+    await drawUserRoute(currentUserId);
+
+    if (currentRole === "passenger") {
+      await findMatchingDrivers(currentUserId);
+      showCurrentDriver();
+    }
   }
 
-  editingPassengerStart = false;
+  editingStart = false;
   saveStartBtn.innerText = "Edytuj start";
+  togglePassengerButtons(false); // 🔓 odblokowanie wszystkich
   selectedPoint = null;
 };
 
 
-const modeBtn = document.getElementById("modeBtn");
 
-// Zmiana trybu – zapis do Firebase
-modeBtn.onclick = () => {
-  const newMode = currentMode === "A" ? "B" : "A";
-  db.ref("session/mode").set(newMode);  // 🔹 zapis trybu globalnie
+/* ================= MODE ================= */
+const modeBtn = document.getElementById("modeBtn");
+modeBtn.onclick = ()=>{
+  const newMode = currentMode==="A"?"B":"A";
+  db.ref("session/mode").set(newMode);
 };
 
-// Listener Firebase – reaguje na zmiany trybu
-db.ref("session/mode").on("value", snap => {
-  const mode = snap.val();
-  if (mode) {
-    currentMode = mode;
-    modeBtn.innerText = "Tryb " + currentMode;
-    update(); // 🔹 odśwież mapę w nowym trybie
+// Funkcja do odświeżania dopasowań po zmianie trybu
+function checkOverlaps(){
+  if(currentRole==="passenger"){
+    findMatchingDrivers(currentUserId).then(()=>showCurrentDriver());
   }
+}
+
+db.ref("session/mode").on("value", snap=>{
+  if(snap.val()) currentMode = snap.val();
+  modeBtn.innerText = "Tryb " + currentMode;
+  checkOverlaps(); // teraz już istnieje, nie powoduje błędu
 });
 
 
-
-
+/* ================= ACCEPT ROUTE ================= */
 const acceptBtn = document.getElementById("acceptBtn");
 
-acceptBtn.onclick = () => {
-  if (acceptLocked) return; // 🔒 zabezpieczenie
+acceptBtn.onclick = async () => {
+  if (acceptLocked) return;
+  if (currentRole !== "passenger") return;
 
-  acceptLocked = true;
+  const passenger = usersMarkers[currentUserId];
+  if (!passenger) return;
 
-  db.ref("session/accepted").set(true);
-  lockFormsAfterAccept();
+  if (!passenger.matchingDrivers || passenger.matchingDrivers.length === 0) {
+    alert("Brak dostępnych kierowców do akceptacji.");
+    return;
+  }
 
-  acceptBtn.disabled = true;
-  acceptBtn.style.opacity = "0.4";
+  const match = passenger.matchingDrivers[passenger.currentDriverIndex];
+  if (!match || !match.driverId) return;
+
+  await db.ref(`session/accepted/${currentUserId}`).set({
+    driverId: match.driverId,
+    timestamp: firebase.database.ServerValue.TIMESTAMP
+  });
+// 🔒 blokujemy dalsze akcje pasażera
+acceptLocked = true;
+togglePassengerButtons(true);
+
+// 🔹 uproszczenie UI pasażera
+document.getElementById("passengerControls").style.display = "none";
+document.getElementById("driverBrowseControls").style.display = "none";
+
+// 🔹 pokazujemy trasę pasażera u kierowcy
+db.ref(`session/users/${match.driverId}`).once("value").then(driverSnap => {
+  const driverData = driverSnap.val();
+  if (!driverData) return;
+
+  const driverMarkers = usersMarkers[match.driverId];
+  if (!driverMarkers) return;
+
+  // trasa pasażera
+  const passengerStart = usersMarkers[currentUserId].startMarker.getLatLng();
+  const passengerEnd = usersMarkers[currentUserId].endMarker.getLatLng();
+
+  route([passengerStart.lat, passengerStart.lng], [passengerEnd.lat, passengerEnd.lng])
+    .then(coords => {
+      if (!coords) return;
+      // linia pasażera dla kierowcy
+      if (!driverMarkers.passengerLine) {
+        driverMarkers.passengerLine = L.polyline(coords, { color: "green", weight: 5, dashArray: "5,5" }).addTo(map);
+      } else {
+        driverMarkers.passengerLine.setLatLngs(coords);
+      }
+
+      // trasa wspólna
+      const overlapPath = overlapLine.getLatLngs();
+      if (!driverMarkers.overlapLine) {
+        driverMarkers.overlapLine = L.polyline(overlapPath, { color: "red", weight: 7 }).addTo(map);
+      } else {
+        driverMarkers.overlapLine.setLatLngs(overlapPath);
+      }
+
+      // uproszczenie UI kierowcy
+      document.getElementById("driverDestinationDiv").style.display = "none";
+    });
+});
+
+
+  console.log(
+    "Pasażer",
+    currentUserId,
+    "zaakceptował kierowcę",
+    match.driverId
+  );
+};
+
+
+/* ================= OVERLAP ================= */
+//const TOLERANCE_METERS = 150; // zwiększona tolerancja, aby łatwiej dopasować trasę
+
+async function findMatchingDrivers(passengerId) {
+  const passenger = usersMarkers[passengerId];
+  if (!passenger) return;
+
+  passenger.matchingDrivers = [];
+  passenger.currentDriverIndex = 0;
+
+  const pStart = passenger.startMarker.getLatLng();
+  console.log("Passenger start:", pStart);
+
+  for (let uid in usersMarkers) {
+    const driver = usersMarkers[uid];
+    if (driver.role !== "driver") continue;
+
+    const path = driver.line.getLatLngs();
+    if (!path || path.length === 0) continue;
+
+    // 1️⃣ start pasażera na trasie kierowcy
+    const startIdx = findClosestIndex(
+      [pStart.lat, pStart.lng],
+      path
+    );
+    if (startIdx === -1) continue;
+
+// 2️⃣ szukamy OSTATNIEGO przecięcia tras (pierwsze od końca)
+let endIdx = -1;
+const passengerPath = passenger.line.getLatLngs();
+
+// Wklejamy sprawdzenie:
+if (!passengerPath || passengerPath.length === 0) continue;
+
+for (let i = path.length - 1; i > startIdx; i--) {
+  const p = path[i];
+  const idxOnPassenger = findClosestIndex(
+    [p.lat, p.lng],
+    passengerPath
+  );
+
+  if (idxOnPassenger !== -1) {
+    endIdx = i;
+    break; // PIERWSZE od tyłu = OSTATNIE logicznie
+  }
+}
+
+// jeśli brak drugiego przecięcia → NIE Tryb A
+if (endIdx === -1) continue;
+
+passenger.matchingDrivers.push({
+  driverId: uid,
+  fromIndex: startIdx,
+  toIndex: endIdx
+});
+  }
+
+  console.log("Matching drivers (MODE A):", passenger.matchingDrivers);
+
+  if (passenger.matchingDrivers.length > 0) {
+    document.getElementById("driverBrowseControls").style.display = "flex";
+  } else {
+    overlapLine.setLatLngs([]);
+    document.getElementById("driverBrowseControls").style.display = "none";
+  }
+}
+
+
+
+// Wyświetla trasę aktualnego dopasowanego kierowcy
+function showCurrentDriver() {
+if (currentRole !== "passenger") return; // tylko pasażer wykonuje tę funkcję
+  const passenger = usersMarkers[currentUserId];
+  if (!passenger || passenger.matchingDrivers.length === 0) {
+    overlapLine.setLatLngs([]);
+    if (driverLineOnMap) {
+      map.removeLayer(driverLineOnMap);
+      driverLineOnMap = null;
+    }
+    return;
+  }
+
+  const match = passenger.matchingDrivers[passenger.currentDriverIndex];
+  const driver = usersMarkers[match.driverId];
+  if (!driver) return;
+
+  const driverPath = driver.line.getLatLngs();
+  const overlapPath = driverPath.slice(match.fromIndex, match.toIndex + 1);
+
+  // 1️⃣ zawsze aktualizujemy trasę wspólną
+  overlapLine.setLatLngs(overlapPath);
+  overlapLine.bringToFront();
+
+  // 2️⃣ usuń starą linię kierowcy, jeśli była
+  if (driverLineOnMap) {
+    map.removeLayer(driverLineOnMap);
+    driverLineOnMap = null;
+  }
+
+  // 3️⃣ dodaj nową linię kierowcy
+  driverLineOnMap = L.polyline(driverPath, {
+    color: driver.color,
+    weight: 5,
+    opacity: 0.7
+  }).addTo(map);
+}
+
+
+
+
+// Guziki do przełączania między kierowcami
+document.getElementById("nextDriverBtn").onclick = () => {
+  const passenger = usersMarkers[currentUserId];
+  if (!passenger || passenger.matchingDrivers.length === 0) return;
+
+  // usuń starą linię kierowcy z mapy
+  if (driverLineOnMap) {
+    map.removeLayer(driverLineOnMap);
+    driverLineOnMap = null;
+  }
+
+  passenger.currentDriverIndex =
+    (passenger.currentDriverIndex + 1) % passenger.matchingDrivers.length;
+
+  showCurrentDriver();
+};
+
+document.getElementById("prevDriverBtn").onclick = () => {
+  const passenger = usersMarkers[currentUserId];
+  if (!passenger || passenger.matchingDrivers.length === 0) return;
+
+  if (driverLineOnMap) {
+    map.removeLayer(driverLineOnMap);
+    driverLineOnMap = null;
+  }
+
+  passenger.currentDriverIndex =
+    (passenger.currentDriverIndex - 1 + passenger.matchingDrivers.length) %
+    passenger.matchingDrivers.length;
+
+  showCurrentDriver();
 };
 
 
 
 
-function lockFormsAfterAccept() {
-  const inputs = document.querySelectorAll(
-    "#driverDestinationDiv input, #passengerDestinationDiv input, #passengerStartDiv input"
-  );
-  const buttons = document.querySelectorAll(
-    "#driverDestinationDiv button, #passengerDestinationDiv button, #passengerStartDiv button"
-  );
 
-  inputs.forEach(i => i.disabled = true);
-  buttons.forEach(b => {
-    b.disabled = true;
-    b.style.opacity = "0.4";
-  });
+
+
+/* ================= EVENTY ROLE ================= */
+document.getElementById("driverBtn").onclick = () => {
+  if (driverLineOnMap) { 
+    map.removeLayer(driverLineOnMap); 
+    driverLineOnMap = null; 
+  }
+  document.body.style.backgroundColor = "#2f6fff"; 
+  createUser("driver");
+};
+
+document.getElementById("passengerBtn").onclick = () => {
+  if (driverLineOnMap) { 
+    map.removeLayer(driverLineOnMap); 
+    driverLineOnMap = null; 
+  }
+  document.body.style.backgroundColor = "#2fbf6f"; 
+  createUser("passenger");
+};
+
+
+/* ================= SYNC USERS ================= */
+/* ================= SYNC USERS – pełna synchronizacja ================= */
+db.ref("session/users").on("value", async snap => {
+  const allUsers = snap.val() || {};
+
+  for (let uid in allUsers) {
+    const data = allUsers[uid];
+
+    // jeśli użytkownik już istnieje w usersMarkers, aktualizujemy markery i trasę
+    if (usersMarkers[uid]) {
+      const user = usersMarkers[uid];
+
+      // aktualizacja startu
+      if (data.currentLocation) {
+        user.startMarker.setLatLng([data.currentLocation.latitude, data.currentLocation.longitude]);
+      }
+
+      // aktualizacja celu
+      if (data.destination) {
+        user.endMarker.setLatLng([data.destination.latitude, data.destination.longitude]);
+      }
+
+      // aktualizacja linii
+      if (data.currentLocation && data.destination) {
+        await drawUserRoute(uid);
+      }
+
+      continue; // idziemy do następnego uid
+    }
+
+    // jeśli użytkownik jeszcze nie istnieje → tworzymy
+    const role = data.role;
+    const color = data.color || (role === "driver" ? randomColor() : "green");
+
+    const startLat = data.currentLocation?.latitude || 0;
+    const startLng = data.currentLocation?.longitude || 0;
+
+    const endLat = data.destination?.latitude || startLat;
+    const endLng = data.destination?.longitude || startLng;
+
+    const startMarker = L.marker([startLat, startLng], { icon: createIcon(uid, color) }).addTo(map);
+    const endMarker = L.marker([endLat, endLng], { icon: createIcon(uid, color) }).addTo(map);
+const line = L.polyline([], { color, weight: 5 });
+
+// Kierowca widzi tylko swoją linię
+if (currentRole === "driver" && uid === currentUserId) {
+  line.addTo(map);
+}
+
+// Pasażer nie zmienia logiki (widzi wszystko zgodnie z wcześniejszymi zmianami)
+
+
+
+
+    usersMarkers[uid] = { startMarker, endMarker, line, role, color };
+
+    // rysowanie trasy jeśli są dane start + cel
+    if (data.currentLocation && data.destination) {
+      await drawUserRoute(uid);
+    }
+  }
+
+  // jeśli jesteśmy pasażerem → sprawdzamy dopasowania
+  if (currentRole === "passenger" && currentUserId) {
+    await findMatchingDrivers(currentUserId);
+    showCurrentDriver();
+  }
+});
+
+/* ================= ACCEPTED – reakcja kierowcy ================= */
+db.ref("session/accepted").on("value", snap => {
+  const accepted = snap.val() || {};
+  
+  // jeśli jesteśmy kierowcą i ktoś nas wybrał
+  if (currentRole === "driver" && currentUserId) {
+    for (const passengerId in accepted) {
+      const info = accepted[passengerId];
+      if (info.driverId === currentUserId) {
+        const passengerMarkers = usersMarkers[passengerId];
+        const driverMarkers = usersMarkers[currentUserId];
+        if (!passengerMarkers || !driverMarkers) continue;
+
+        // 🔹 rysujemy trasę pasażera dla kierowcy
+        const passengerStart = passengerMarkers.startMarker.getLatLng();
+        const passengerEnd = passengerMarkers.endMarker.getLatLng();
+
+        route([passengerStart.lat, passengerStart.lng], [passengerEnd.lat, passengerEnd.lng])
+          .then(coords => {
+            if (!coords) return;
+
+            // linia pasażera
+            if (!driverMarkers.passengerLine) {
+              driverMarkers.passengerLine = L.polyline(coords, { color: "green", weight: 5, dashArray: "5,5" }).addTo(map);
+            } else {
+              driverMarkers.passengerLine.setLatLngs(coords);
+            }
+
+            // linia wspólna (overlap)
+            const overlapPath = overlapLine.getLatLngs();
+            if (!driverMarkers.overlapLine) {
+              driverMarkers.overlapLine = L.polyline(overlapPath, { color: "red", weight: 7 }).addTo(map);
+            } else {
+              driverMarkers.overlapLine.setLatLngs(overlapPath);
+            }
+
+            // 🔹 uproszczenie UI kierowcy
+            document.getElementById("driverDestinationDiv").style.display = "none";
+          });
+      }
+    }
+  }
+});
+
+/* ================= RESET ================= */
+document.getElementById("resetBtn").onclick = async () => {
+  if (!confirm("Czy na pewno zresetować całą sesję?")) return;
+
+  // 1. Firebase – czyścimy WSZYSTKO
+  await db.ref("session").set(null);
+
+  // 2. Mapa – usuwamy markery i linie
+  for (let uid in usersMarkers) {
+    const u = usersMarkers[uid];
+    map.removeLayer(u.startMarker);
+    map.removeLayer(u.endMarker);
+    map.removeLayer(u.line);
+  }
+  overlapLine.setLatLngs([]);
+
+if (driverLineOnMap) {
+  map.removeLayer(driverLineOnMap);
+  driverLineOnMap = null;
 }
 
 
+  // 3. Reset lokalnego stanu
+  usersMarkers = {};
+  currentUserId = null;
+  currentRole = null;
+  selectedPoint = null;
+  editingDestination = false;
+  editingStart = false;
+  currentMode = "A";
+  acceptLocked = false;
+
+  // 4. UI
+  document.body.style.backgroundColor = "";
+  document.getElementById("driverDestinationDiv").style.display = "none";
+  document.getElementById("passengerControls").style.display = "none";
+  document.getElementById("driverBrowseControls").style.display = "none";
+
+  document.getElementById("driverBtn").disabled = false;
+  document.getElementById("driverBtn").style.opacity = "1";
+  document.getElementById("passengerBtn").disabled = false;
+  document.getElementById("passengerBtn").style.opacity = "1";
+
+  document.getElementById("modeBtn").innerText = "Tryb A";
+
+  alert("Sesja została zresetowana.");
+};
 
 </script>
+
 </body>
 </html>
