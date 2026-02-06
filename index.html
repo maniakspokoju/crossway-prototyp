@@ -61,7 +61,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.2.6</h1>
+  																	<h1 style="margin:0;">Crossway – 6.2.7</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -424,6 +424,10 @@ acceptBtn.onclick = async () => {
 // 🔒 blokujemy dalsze akcje pasażera
 acceptLocked = true;
 togglePassengerButtons(true);
+
+// 🔹 uproszczenie UI pasażera
+document.getElementById("passengerControls").style.display = "none";
+document.getElementById("driverBrowseControls").style.display = "none";
 
 
   console.log(
