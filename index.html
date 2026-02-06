@@ -61,7 +61,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.2.7</h1>
+  																	<h1 style="margin:0;">Crossway – 6.2.8</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -428,6 +428,41 @@ togglePassengerButtons(true);
 // 🔹 uproszczenie UI pasażera
 document.getElementById("passengerControls").style.display = "none";
 document.getElementById("driverBrowseControls").style.display = "none";
+
+// 🔹 pokazujemy trasę pasażera u kierowcy
+db.ref(`session/users/${match.driverId}`).once("value").then(driverSnap => {
+  const driverData = driverSnap.val();
+  if (!driverData) return;
+
+  const driverMarkers = usersMarkers[match.driverId];
+  if (!driverMarkers) return;
+
+  // trasa pasażera
+  const passengerStart = usersMarkers[currentUserId].startMarker.getLatLng();
+  const passengerEnd = usersMarkers[currentUserId].endMarker.getLatLng();
+
+  route([passengerStart.lat, passengerStart.lng], [passengerEnd.lat, passengerEnd.lng])
+    .then(coords => {
+      if (!coords) return;
+      // linia pasażera dla kierowcy
+      if (!driverMarkers.passengerLine) {
+        driverMarkers.passengerLine = L.polyline(coords, { color: "green", weight: 5, dashArray: "5,5" }).addTo(map);
+      } else {
+        driverMarkers.passengerLine.setLatLngs(coords);
+      }
+
+      // trasa wspólna
+      const overlapPath = overlapLine.getLatLngs();
+      if (!driverMarkers.overlapLine) {
+        driverMarkers.overlapLine = L.polyline(overlapPath, { color: "red", weight: 7 }).addTo(map);
+      } else {
+        driverMarkers.overlapLine.setLatLngs(overlapPath);
+      }
+
+      // uproszczenie UI kierowcy
+      document.getElementById("driverDestinationDiv").style.display = "none";
+    });
+});
 
 
   console.log(
