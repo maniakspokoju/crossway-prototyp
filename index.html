@@ -429,14 +429,6 @@ togglePassengerButtons(true);
 document.getElementById("passengerControls").style.display = "none";
 document.getElementById("driverBrowseControls").style.display = "none";
 
-  console.log(
-    "Pasażer",
-    currentUserId,
-    "zaakceptował kierowcę",
-    match.driverId
-  );
-};
-
 // 🔹 pokazujemy trasę pasażera u kierowcy
 db.ref(`session/users/${match.driverId}`).once("value").then(driverSnap => {
   const driverData = driverSnap.val();
@@ -472,6 +464,14 @@ db.ref(`session/users/${match.driverId}`).once("value").then(driverSnap => {
     });
 });
 
+
+  console.log(
+    "Pasażer",
+    currentUserId,
+    "zaakceptował kierowcę",
+    match.driverId
+  );
+};
 
 
 /* ================= OVERLAP ================= */
@@ -709,6 +709,50 @@ if (currentRole === "driver" && uid === currentUserId) {
   if (currentRole === "passenger" && currentUserId) {
     await findMatchingDrivers(currentUserId);
     showCurrentDriver();
+  }
+});
+
+/* ================= ACCEPTED – reakcja kierowcy ================= */
+db.ref("session/accepted").on("value", snap => {
+  const accepted = snap.val() || {};
+  
+  // jeśli jesteśmy kierowcą i ktoś nas wybrał
+  if (currentRole === "driver" && currentUserId) {
+    for (const passengerId in accepted) {
+      const info = accepted[passengerId];
+      if (info.driverId === currentUserId) {
+        const passengerMarkers = usersMarkers[passengerId];
+        const driverMarkers = usersMarkers[currentUserId];
+        if (!passengerMarkers || !driverMarkers) continue;
+
+        // 🔹 rysujemy trasę pasażera dla kierowcy
+        const passengerStart = passengerMarkers.startMarker.getLatLng();
+        const passengerEnd = passengerMarkers.endMarker.getLatLng();
+
+        route([passengerStart.lat, passengerStart.lng], [passengerEnd.lat, passengerEnd.lng])
+          .then(coords => {
+            if (!coords) return;
+
+            // linia pasażera
+            if (!driverMarkers.passengerLine) {
+              driverMarkers.passengerLine = L.polyline(coords, { color: "green", weight: 5, dashArray: "5,5" }).addTo(map);
+            } else {
+              driverMarkers.passengerLine.setLatLngs(coords);
+            }
+
+            // linia wspólna (overlap)
+            const overlapPath = overlapLine.getLatLngs();
+            if (!driverMarkers.overlapLine) {
+              driverMarkers.overlapLine = L.polyline(overlapPath, { color: "red", weight: 7 }).addTo(map);
+            } else {
+              driverMarkers.overlapLine.setLatLngs(overlapPath);
+            }
+
+            // 🔹 uproszczenie UI kierowcy
+            document.getElementById("driverDestinationDiv").style.display = "none";
+          });
+      }
+    }
   }
 });
 
