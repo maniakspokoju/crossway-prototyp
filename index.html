@@ -61,7 +61,7 @@ body {
 
 <body>
 <div style="display:flex; align-items:center; justify-content:space-between; margin:5px 10px;">
-  																	<h1 style="margin:0;">Crossway – 6.2.5</h1>
+  																	<h1 style="margin:0;">Crossway – 6.2.6</h1>
   <button id="resetBtn"
     style="font-size:16px; padding:6px 14px; border-radius:10px; cursor:pointer;">
     Reset
@@ -421,6 +421,10 @@ acceptBtn.onclick = async () => {
     driverId: match.driverId,
     timestamp: firebase.database.ServerValue.TIMESTAMP
   });
+// 🔒 blokujemy dalsze akcje pasażera
+acceptLocked = true;
+togglePassengerButtons(true);
+
 
   console.log(
     "Pasażer",
