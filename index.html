@@ -1,4 +1,4 @@
-/* 6.2.0 pasażer widzi swoją trasę, jednego kierowcy i wspólną trasę / kierowca widzi swoją trasę / widać wszystkie markery / firebase zapisuje accept
+/* 6.1.9 pasażer widzi swoją trasę, jednego kierowcy i wspólną trasę / kierowca widzi swoją trasę / widać wszystkie markery / firebase zapisuje accept
 
 
 <!DOCTYPE html>
@@ -442,19 +442,30 @@ async function findMatchingDrivers(passengerId) {
   const pStart = passenger.startMarker.getLatLng();
   console.log("Passenger start:", pStart);
 
-  for (let uid in usersMarkers) {
-    const driver = usersMarkers[uid];
-    if (driver.role !== "driver") continue;
+ for (let uid in usersMarkers) {
+  const driver = usersMarkers[uid];
+  if (driver.role !== "driver") continue;
 
-    const path = driver.line.getLatLngs();
-    if (!path || path.length === 0) continue;
+  const path = driver.line.getLatLngs();
+  if (!path || path.length === 0) continue;
 
-    // 1️⃣ start pasażera na trasie kierowcy
-    const startIdx = findClosestIndex(
-      [pStart.lat, pStart.lng],
-      path
-    );
-    if (startIdx === -1) continue;
+  // 1️⃣ start pasażera na trasie kierowcy
+  const startIdx = findClosestIndex(
+    [pStart.lat, pStart.lng],
+    path
+  );
+  if (startIdx === -1) continue;
+
+  // 🔀 ROZDZIELENIE TRYBÓW
+  if (currentMode === "A") {
+
+    // (tu zostaje Twoja obecna logika – NIC nie zmieniamy)
+
+  } else {
+
+    // (tu za chwilę dodamy Tryb B)
+
+  }
 
 // 2️⃣ szukamy OSTATNIEGO przecięcia tras (pierwsze od końca)
 let endIdx = -1;
